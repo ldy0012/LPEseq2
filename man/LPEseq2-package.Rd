@@ -9,6 +9,13 @@
 The LPEseq2 package provides preprocessing and local pooled error-based
 ANOVA functions for multi-group RNA-seq differential expression analysis.
 }
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://ldy0012.github.io/LPEseq2/}
+}
+
+}
 \author{
 \strong{Maintainer}: Doye Lim \email{doye730@gmail.com}
 

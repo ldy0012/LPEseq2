@@ -21,3 +21,4 @@ Suggests:
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
 Config/roxygen2/version: 8.0.0
+URL: https://ldy0012.github.io/LPEseq2/
