@@ -10,8 +10,11 @@ Description: Provides preprocessing and local pooled error-based ANOVA
     DESeq2-based normalization options, and intensity-dependent variance 
     trend estimation for multi-group differential expression analysis.
 License: MIT + file LICENSE
+URL: https://ldy0012.github.io/LPEseq2/, https://github.com/ldy0012/LPEseq2
+BugReports: https://github.com/ldy0012/LPEseq2/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
 Imports:
     stats,
     utils
@@ -20,5 +23,3 @@ Suggests:
     DESeq2,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
-Config/roxygen2/version: 8.0.0
-URL: https://ldy0012.github.io/LPEseq2/
