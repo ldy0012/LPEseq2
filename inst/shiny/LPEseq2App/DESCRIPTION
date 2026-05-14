@@ -1,0 +1,11 @@
+Package: LPEseq2App
+Title: LPEseq2 Shiny App
+Version: 0.0.1
+Type: Shiny
+Imports:
+    shiny,
+    DT,
+    LPEseq2
+Remotes:
+    github::ldy0012/LPEseq2
+Encoding: UTF-8

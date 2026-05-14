@@ -84,6 +84,18 @@ ui <- fluidPage(
         min = 0.01
       ),
       
+      checkboxInput(
+        "use_weighted_between",
+        "Use weighted between-group differences",
+        value = FALSE
+      ),
+      
+      helpText(
+        "If checked, between-group differences are also used for variance trend estimation. ",
+        "This can be useful when replicate information is limited, but may inflate variance ",
+        "when many genes are truly differentially expressed."
+      ),
+      
       selectInput(
         "p_method",
         "P-value method",
@@ -252,7 +264,7 @@ sample4,Treatment"
       df = input$df,
       trim.method = input$trim_method,
       d = input$d,
-      use_weighted_between = FALSE,
+      use_weighted_between = input$use_weighted_between,
       verbose = FALSE,
       p.method = input$p_method
     )
@@ -289,6 +301,7 @@ sample4,Treatment"
     cat("4. Click Run LPE-ANOVA.\n")
     cat("\n")
     cat("Counts columns must match metadata row names.\n")
+    cat("use_weighted_between: ", input$use_weighted_between, "\n")
   })
 }
 
