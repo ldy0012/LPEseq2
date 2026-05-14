@@ -131,6 +131,11 @@ returns a data frame with the following columns:
 
 Package website: <https://ldy0012.github.io/LPEseq2/>
 
+You can run LPEseq2 directly in the browser using the Shiny web tool:
+
+[Launch LPEseq2 Shiny Web
+Tool](https://ldy0012.shinyapps.io/lpeseq2app/)
+
 ## License
 
 MIT
