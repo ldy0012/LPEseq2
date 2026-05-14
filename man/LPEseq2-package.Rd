@@ -13,6 +13,8 @@ ANOVA functions for multi-group RNA-seq differential expression analysis.
 Useful links:
 \itemize{
   \item \url{https://ldy0012.github.io/LPEseq2/}
+  \item \url{https://github.com/ldy0012/LPEseq2}
+  \item Report bugs at \url{https://github.com/ldy0012/LPEseq2/issues}
 }
 
 }

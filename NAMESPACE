@@ -3,3 +3,4 @@
 export(LPE_ANOVA)
 export(LPE_ANOVA_var)
 export(LPE_preprocess)
+export(run_LPEseq2_app)
