@@ -1,0 +1,17 @@
+Provides preprocessing and local pooled error-based ANOVA functions for
+RNA-seq count data. The package supports raw count input checking,
+low-count gene filtering, library-size, TMM, and DESeq2-based
+normalization options, and intensity-dependent variance trend estimation
+for multi-group differential expression analysis.
+
+# Package index
+
+## All functions
+
+- [`LPE_ANOVA()`](https://ldy0012.github.io/LPEseq2/reference/LPE_ANOVA.md)
+  : Run LPE-ANOVA
+- [`LPE_ANOVA_var()`](https://ldy0012.github.io/LPEseq2/reference/LPE_ANOVA_var.md)
+  : Estimate Intensity-Dependent Variance Trend for LPE-ANOVA
+- [`LPE_preprocess()`](https://ldy0012.github.io/LPEseq2/reference/LPE_preprocess.md)
+  : Preprocess RNA-seq Count Data for LPE-ANOVA
+
