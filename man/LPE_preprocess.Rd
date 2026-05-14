@@ -8,7 +8,7 @@ LPE_preprocess(
   counts,
   colData,
   design = ~group,
-  normalize.method = c("TMM", "library_size", "DESeq2", "none"),
+  normalize.method = c("library_size", "TMM", "DESeq2", "none"),
   log.transform = TRUE,
   min.count = 5,
   prior.count = 1,
