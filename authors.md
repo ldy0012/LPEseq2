@@ -6,6 +6,9 @@
 
 ## Citation
 
+Source:
+[`DESCRIPTION`](https://github.com/ldy0012/LPEseq2/blob/master/DESCRIPTION)
+
 Lim D (2026). *LPEseq2: Local Pooled Error-Based ANOVA for RNA-Seq Count
 Data*. R package version 0.0.1, <https://ldy0012.github.io/LPEseq2/>.
 

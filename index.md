@@ -1,5 +1,136 @@
-Provides preprocessing and local pooled error-based ANOVA functions for
-RNA-seq count data. The package supports raw count input checking,
-low-count gene filtering, library-size, TMM, and DESeq2-based
-normalization options, and intensity-dependent variance trend estimation
-for multi-group differential expression analysis.
+# LPEseq2
+
+LPEseq2 is an R package for local pooled error-based ANOVA of RNA-seq
+count data.
+
+The package provides functions for preprocessing RNA-seq count data,
+estimating intensity-dependent variance trends, and performing
+multi-group differential expression analysis using a local pooled
+error-based ANOVA framework.
+
+## Installation
+
+You can install the development version of LPEseq2 from GitHub:
+
+``` r
+
+install.packages("devtools")
+devtools::install_github("ldy0012/LPEseq2")
+```
+
+## Optional dependencies
+
+LPEseq2 supports several normalization methods.
+
+For basic use, `library_size` normalization can be used without
+additional Bioconductor packages.
+
+For TMM and DESeq2 normalization, install the following packages:
+
+``` r
+
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+  install.packages("BiocManager")
+}
+
+BiocManager::install(c("edgeR", "DESeq2"))
+```
+
+## Main functions
+
+| Function | Description |
+|----|----|
+| [`LPE_preprocess()`](https://ldy0012.github.io/LPEseq2/reference/LPE_preprocess.md) | Checks count matrix and sample metadata, filters low-count genes, and performs normalization |
+| [`LPE_ANOVA()`](https://ldy0012.github.io/LPEseq2/reference/LPE_ANOVA.md) | Performs local pooled error-based ANOVA for multi-group differential expression analysis |
+| [`LPE_ANOVA_var()`](https://ldy0012.github.io/LPEseq2/reference/LPE_ANOVA_var.md) | Estimates an intensity-dependent variance trend |
+
+## Input format
+
+The count matrix should contain genes as rows and samples as columns.
+
+``` r
+
+# Example count matrix
+#        sample1 sample2 sample3 sample4
+# gene1      100     120      80      95
+# gene2       50      60      55      70
+```
+
+The sample metadata should contain samples as rows and variables as
+columns.
+
+``` r
+
+# Example colData
+#          group
+# sample1 Control
+# sample2 Control
+# sample3 Treatment
+# sample4 Treatment
+```
+
+The column names of the count matrix must match the row names of
+`colData`.
+
+## Example
+
+``` r
+
+library(LPEseq2)
+
+set.seed(123)
+
+counts <- matrix(
+  rnbinom(1000, mu = 50, size = 10),
+  nrow = 100,
+  ncol = 10
+)
+
+rownames(counts) <- paste0("gene", 1:100)
+colnames(counts) <- paste0("sample", 1:10)
+
+colData <- data.frame(
+  group = rep(c("Control", "Treatment"), each = 5),
+  row.names = colnames(counts)
+)
+
+prep <- LPE_preprocess(
+  counts = counts,
+  colData = colData,
+  design = ~ group,
+  normalize.method = "library_size",
+  verbose = FALSE
+)
+
+res <- LPE_ANOVA(
+  object = prep,
+  trim.method = "mad",
+  p.method = "chisq",
+  verbose = FALSE
+)
+
+head(res)
+```
+
+## Output
+
+[`LPE_ANOVA()`](https://ldy0012.github.io/LPEseq2/reference/LPE_ANOVA.md)
+returns a data frame with the following columns:
+
+| Column       | Description                     |
+|--------------|---------------------------------|
+| `gene`       | Gene identifier                 |
+| `mean`       | Mean expression value           |
+| `var`        | Estimated local pooled variance |
+| `MS_between` | Between-group mean square       |
+| `F`          | Test statistic                  |
+| `p.value`    | Raw p-value                     |
+| `q.value`    | BH-adjusted p-value             |
+
+## Website
+
+Package website: <https://ldy0012.github.io/LPEseq2/>
+
+## License
+
+MIT

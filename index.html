@@ -37,6 +37,7 @@
 <li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="search.json">
 </form></li>
+<li class="nav-item"><a class="external-link nav-link" href="https://github.com/ldy0012/LPEseq2/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
       </ul>
 </div>
 
@@ -44,9 +45,179 @@
   </div>
 </nav><div class="container template-home">
 <div class="row">
-  <main id="main" class="col-md-9">
-Provides preprocessing and local pooled error-based ANOVA functions for RNA-seq count data. The package supports raw count input checking, low-count gene filtering, library-size, TMM, and DESeq2-based normalization options, and intensity-dependent variance trend estimation for multi-group differential expression analysis.
-  </main><aside class="col-md-3"><div class="license">
+  <main id="main" class="col-md-9"><div class="section level1">
+<div class="page-header"><h1 id="lpeseq2">LPEseq2<a class="anchor" aria-label="anchor" href="#lpeseq2"></a>
+</h1></div>
+<p>LPEseq2 is an R package for local pooled error-based ANOVA of RNA-seq count data.</p>
+<p>The package provides functions for preprocessing RNA-seq count data, estimating intensity-dependent variance trends, and performing multi-group differential expression analysis using a local pooled error-based ANOVA framework.</p>
+<div class="section level2">
+<h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
+</h2>
+<p>You can install the development version of LPEseq2 from GitHub:</p>
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"devtools"</span><span class="op">)</span></span>
+<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"ldy0012/LPEseq2"</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="optional-dependencies">Optional dependencies<a class="anchor" aria-label="anchor" href="#optional-dependencies"></a>
+</h2>
+<p>LPEseq2 supports several normalization methods.</p>
+<p>For basic use, <code>library_size</code> normalization can be used without additional Bioconductor packages.</p>
+<p>For TMM and DESeq2 normalization, install the following packages:</p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw">if</span> <span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace</a></span><span class="op">(</span><span class="st">"BiocManager"</span>, quietly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"BiocManager"</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="fu">BiocManager</span><span class="fu">::</span><span class="fu">install</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"edgeR"</span>, <span class="st">"DESeq2"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="main-functions">Main functions<a class="anchor" aria-label="anchor" href="#main-functions"></a>
+</h2>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr>
+<th>Function</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><code><a href="reference/LPE_preprocess.html">LPE_preprocess()</a></code></td>
+<td>Checks count matrix and sample metadata, filters low-count genes, and performs normalization</td>
+</tr>
+<tr>
+<td><code><a href="reference/LPE_ANOVA.html">LPE_ANOVA()</a></code></td>
+<td>Performs local pooled error-based ANOVA for multi-group differential expression analysis</td>
+</tr>
+<tr>
+<td><code><a href="reference/LPE_ANOVA_var.html">LPE_ANOVA_var()</a></code></td>
+<td>Estimates an intensity-dependent variance trend</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section level2">
+<h2 id="input-format">Input format<a class="anchor" aria-label="anchor" href="#input-format"></a>
+</h2>
+<p>The count matrix should contain genes as rows and samples as columns.</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Example count matrix</span></span>
+<span><span class="co">#        sample1 sample2 sample3 sample4</span></span>
+<span><span class="co"># gene1      100     120      80      95</span></span>
+<span><span class="co"># gene2       50      60      55      70</span></span></code></pre></div>
+<p>The sample metadata should contain samples as rows and variables as columns.</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Example colData</span></span>
+<span><span class="co">#          group</span></span>
+<span><span class="co"># sample1 Control</span></span>
+<span><span class="co"># sample2 Control</span></span>
+<span><span class="co"># sample3 Treatment</span></span>
+<span><span class="co"># sample4 Treatment</span></span></code></pre></div>
+<p>The column names of the count matrix must match the row names of <code>colData</code>.</p>
+</div>
+<div class="section level2">
+<h2 id="example">Example<a class="anchor" aria-label="anchor" href="#example"></a>
+</h2>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://ldy0012.github.io/LPEseq2/">LPEseq2</a></span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">123</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">counts</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/stats/NegBinomial.html" class="external-link">rnbinom</a></span><span class="op">(</span><span class="fl">1000</span>, mu <span class="op">=</span> <span class="fl">50</span>, size <span class="op">=</span> <span class="fl">10</span><span class="op">)</span>,</span>
+<span>  nrow <span class="op">=</span> <span class="fl">100</span>,</span>
+<span>  ncol <span class="op">=</span> <span class="fl">10</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">rownames</a></span><span class="op">(</span><span class="va">counts</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"gene"</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">100</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">colnames</a></span><span class="op">(</span><span class="va">counts</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"sample"</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">10</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">colData</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  group <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Control"</span>, <span class="st">"Treatment"</span><span class="op">)</span>, each <span class="op">=</span> <span class="fl">5</span><span class="op">)</span>,</span>
+<span>  row.names <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">colnames</a></span><span class="op">(</span><span class="va">counts</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">prep</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_preprocess.html">LPE_preprocess</a></span><span class="op">(</span></span>
+<span>  counts <span class="op">=</span> <span class="va">counts</span>,</span>
+<span>  colData <span class="op">=</span> <span class="va">colData</span>,</span>
+<span>  design <span class="op">=</span> <span class="op">~</span> <span class="va">group</span>,</span>
+<span>  normalize.method <span class="op">=</span> <span class="st">"library_size"</span>,</span>
+<span>  verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_ANOVA.html">LPE_ANOVA</a></span><span class="op">(</span></span>
+<span>  object <span class="op">=</span> <span class="va">prep</span>,</span>
+<span>  trim.method <span class="op">=</span> <span class="st">"mad"</span>,</span>
+<span>  p.method <span class="op">=</span> <span class="st">"chisq"</span>,</span>
+<span>  verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="output">Output<a class="anchor" aria-label="anchor" href="#output"></a>
+</h2>
+<p><code><a href="reference/LPE_ANOVA.html">LPE_ANOVA()</a></code> returns a data frame with the following columns:</p>
+<table class="table">
+<thead><tr>
+<th>Column</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><code>gene</code></td>
+<td>Gene identifier</td>
+</tr>
+<tr>
+<td><code>mean</code></td>
+<td>Mean expression value</td>
+</tr>
+<tr>
+<td><code>var</code></td>
+<td>Estimated local pooled variance</td>
+</tr>
+<tr>
+<td><code>MS_between</code></td>
+<td>Between-group mean square</td>
+</tr>
+<tr>
+<td><code>F</code></td>
+<td>Test statistic</td>
+</tr>
+<tr>
+<td><code>p.value</code></td>
+<td>Raw p-value</td>
+</tr>
+<tr>
+<td><code>q.value</code></td>
+<td>BH-adjusted p-value</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section level2">
+<h2 id="website">Website<a class="anchor" aria-label="anchor" href="#website"></a>
+</h2>
+<p>Package website: <a href="https://ldy0012.github.io/LPEseq2/" class="uri">https://ldy0012.github.io/LPEseq2/</a></p>
+</div>
+<div class="section level2">
+<h2 id="license">License<a class="anchor" aria-label="anchor" href="#license"></a>
+</h2>
+<p>MIT</p>
+</div>
+</div>
+  </main><aside class="col-md-3"><div class="links">
+<h2 data-toc-skip>Links</h2>
+<ul class="list-unstyled">
+<li><a href="https://github.com/ldy0012/LPEseq2/" class="external-link">Browse source code</a></li>
+<li><a href="https://github.com/ldy0012/LPEseq2/issues" class="external-link">Report a bug</a></li>
+</ul>
+</div>
+
+<div class="license">
 <h2 data-toc-skip>License</h2>
 <ul class="list-unstyled">
 <li><a href="LICENSE.html">Full license</a></li>
