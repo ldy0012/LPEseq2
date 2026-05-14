@@ -10,6 +10,10 @@ Useful links:
 
 - <https://ldy0012.github.io/LPEseq2/>
 
+- <https://github.com/ldy0012/LPEseq2>
+
+- Report bugs at <https://github.com/ldy0012/LPEseq2/issues>
+
 ## Author
 
 **Maintainer**: Doye Lim <doye730@gmail.com>
