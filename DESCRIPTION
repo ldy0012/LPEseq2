@@ -2,8 +2,19 @@ Package: LPEseq2
 Type: Package
 Title: Local Pooled Error-Based ANOVA for RNA-Seq Count Data
 Version: 0.0.1
-Authors@R: 
-    person("Doye", "Lim", email = "doye730@gmail.com", role = c("aut", "cre"))
+Authors@R: c(
+    person(
+        given = "Doye",
+        family = "Lim",
+        role = c("aut", "cre"),
+        comment = c(affiliation = "gimLAB")
+    ),
+    person(
+        given = "FirstName",
+        family = "LastName",
+        role = "ctb"
+    )
+    )
 Description: Provides preprocessing and local pooled error-based ANOVA 
     functions for RNA-seq count data. The package supports raw count 
     input checking, low-count gene filtering, library-size, TMM, and 

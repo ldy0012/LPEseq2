@@ -19,11 +19,16 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Doye Lim \email{doye730@gmail.com}
+\strong{Maintainer}: Doye Lim (affiliation: gimLAB)
 
 Authors:
 \itemize{
-  \item Doye Lim \email{doye730@gmail.com}
+  \item Doye Lim (affiliation: gimLAB)
+}
+
+Other contributors:
+\itemize{
+  \item FirstName LastName [contributor]
 }
 
 }
