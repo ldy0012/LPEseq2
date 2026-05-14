@@ -16,8 +16,12 @@ Useful links:
 
 ## Author
 
-**Maintainer**: Doye Lim <doye730@gmail.com>
+**Maintainer**: Doye Lim <doye730@gmail.com> (affiliation: gimLAB)
 
 Authors:
 
-- Doye Lim <doye730@gmail.com>
+- Doye Lim <doye730@gmail.com> (affiliation: gimLAB)
+
+Other contributors:
+
+- FirstName LastName \[contributor\]

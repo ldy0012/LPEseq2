@@ -2,7 +2,10 @@
 
 ## Authors
 
-- **Doye Lim**. Author, maintainer.
+- **Doye Lim**. Author, maintainer.  
+  gimLAB
+
+- **FirstName LastName**. Contributor.
 
 ## Citation
 
