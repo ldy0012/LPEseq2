@@ -19,11 +19,11 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Doye Lim (affiliation: gimLAB)
+\strong{Maintainer}: Doye Lim \email{doye730@gmail.com} (affiliation: gimLAB)
 
 Authors:
 \itemize{
-  \item Doye Lim (affiliation: gimLAB)
+  \item Doye Lim \email{doye730@gmail.com} (affiliation: gimLAB)
 }
 
 Other contributors:
