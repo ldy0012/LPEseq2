@@ -70,16 +70,16 @@ ui <- fluidPage(
         min = 2
       ),
       
-      selectInput(
-        "trim_method",
-        "Trimming method",
-        choices = c("mad", "quantile", "fixed"),
-        selected = "mad"
-      ),
+      # selectInput(
+      #   "trim_method",
+      #   "Trimming method",
+      #   choices = c("mad", "quantile", "fixed"),
+      #   selected = "mad"
+      # ),
       
       numericInput(
         "d",
-        "Fixed trimming threshold",
+        "Fixed outlier trimming threshold",
         value = 1.2,
         min = 0.01
       ),
@@ -92,6 +92,7 @@ ui <- fluidPage(
       
       helpText(
         "If checked, between-group differences are also used for variance trend estimation. ",
+        "Fixed outlier trimming is applied only to between-group-derived differences. ",
         "This can be useful when replicate information is limited, but may inflate variance ",
         "when many genes are truly differentially expressed."
       ),
@@ -262,7 +263,6 @@ sample4,Treatment"
       object = prep,
       n.bin = input$n_bin,
       df = input$df,
-      trim.method = input$trim_method,
       d = input$d,
       use_weighted_between = input$use_weighted_between,
       verbose = FALSE,
