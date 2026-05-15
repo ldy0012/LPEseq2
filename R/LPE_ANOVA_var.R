@@ -266,7 +266,7 @@ LPE_ANOVA_var <- function(expr,
   }
 
   # -----------------------------
-  # 6. quantile binning
+  # 7. quantile binning
   # -----------------------------
 
   n.bin <- min(n.bin, floor(length(A_all) / 5))
@@ -322,7 +322,7 @@ LPE_ANOVA_var <- function(expr,
   }
 
   # -----------------------------
-  # 7. low-expression variance floor
+  # 8. low-expression variance floor
   # -----------------------------
 
   max_var <- max(base.var$var.M, na.rm = TRUE)
@@ -331,7 +331,7 @@ LPE_ANOVA_var <- function(expr,
   base.var$var.M[seq_len(idx_max)] <- max_var
 
   # -----------------------------
-  # 8. smoothing spline
+  # 9. smoothing spline
   # -----------------------------
 
   df_use <- min(df, nrow(base.var) - 1)
