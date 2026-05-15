@@ -76,7 +76,21 @@ LPE_ANOVA_var <- function(expr,
   W_all <- numeric(0)
 
   # -----------------------------
+  # Initialize containers by source
+  # -----------------------------
+
+  M_within <- numeric(0)
+  A_within <- numeric(0)
+  W_within <- numeric(0)
+
+  M_between <- numeric(0)
+  A_between <- numeric(0)
+  W_between <- numeric(0)
+
+  # -----------------------------
   # 2. within-group pairwise differences
+  #    These are genuine replicate-based residual differences.
+  #    Do not apply outlier trimming to these values.
   # -----------------------------
 
   for (g in seq_len(nrow(expr))) {
@@ -92,21 +106,34 @@ LPE_ANOVA_var <- function(expr,
         yi <- y[comb[1, ]]
         yj <- y[comb[2, ]]
 
-        M_all <- c(M_all, (yi - yj) / sqrt(2))
-        A_all <- c(A_all, (yi + yj) / 2)
-        W_all <- c(W_all, rep(1, ncol(comb)))
+        M_within <- c(M_within, (yi - yj) / sqrt(2))
+        A_within <- c(A_within, (yi + yj) / 2)
+        W_within <- c(W_within, rep(1, ncol(comb)))
       }
     }
   }
 
+  # Keep only valid within-group values
+  valid_within <- is.finite(M_within) &
+    is.finite(A_within) &
+    is.finite(W_within) &
+    W_within > 0
+
+  M_within <- M_within[valid_within]
+  A_within <- A_within[valid_within]
+  W_within <- W_within[valid_within]
+
   # -----------------------------
   # 3. optional weighted between-group information
+  #    These values may contain true DE signal and are therefore
+  #    the only target of outlier trimming.
   # -----------------------------
 
   if (use_weighted_between) {
     warning(
       "Between-group differences are used for variance training. ",
-      "This may inflate variance if many genes are truly differentially expressed."
+      "Outlier trimming will be applied only to between-group differences. ",
+      "This may reduce the influence of truly differentially expressed genes."
     )
 
     for (g in seq_len(nrow(expr))) {
@@ -132,21 +159,24 @@ LPE_ANOVA_var <- function(expr,
 
         alpha <- min(n1, n2) / (n1 + n2)
 
-        M_all <- c(M_all, m_star)
-        A_all <- c(A_all, a_val)
-        W_all <- c(W_all, alpha)
+        M_between <- c(M_between, m_star)
+        A_between <- c(A_between, a_val)
+        W_between <- c(W_between, alpha)
       }
     }
   }
 
   # -----------------------------
   # 4. full non-replicate fallback
+  #    If all groups have n = 1, variance estimation must rely
+  #    on between-group differences; trim these values.
   # -----------------------------
 
-  if (length(M_all) == 0 && all(n_i == 1)) {
+  if (length(M_within) == 0 && all(n_i == 1)) {
     warning(
       "All groups have only one sample. ",
       "Variance estimation relies entirely on between-group differences. ",
+      "Outlier trimming will be applied to these between-group differences. ",
       "P-values should be interpreted cautiously."
     )
 
@@ -157,57 +187,82 @@ LPE_ANOVA_var <- function(expr,
       yi <- y[comb_g[1, ]]
       yj <- y[comb_g[2, ]]
 
-      M_all <- c(M_all, (yi - yj) / sqrt(2))
-      A_all <- c(A_all, (yi + yj) / 2)
-      W_all <- c(W_all, rep(1, ncol(comb_g)))
+      M_between <- c(M_between, (yi - yj) / sqrt(2))
+      A_between <- c(A_between, (yi + yj) / 2)
+      W_between <- c(W_between, rep(1, ncol(comb_g)))
     }
   }
+
+  # -----------------------------
+  # 5. robust outlier trimming
+  #    Apply trimming only to between-derived values.
+  # -----------------------------
+
+  if (length(M_between) > 0) {
+
+    valid_between <- is.finite(M_between) &
+      is.finite(A_between) &
+      is.finite(W_between) &
+      W_between > 0
+
+    M_between <- M_between[valid_between]
+    A_between <- A_between[valid_between]
+    W_between <- W_between[valid_between]
+
+    if (length(M_between) >= 10) {
+
+      if (trim.method == "mad") {
+
+        med <- stats::median(M_between, na.rm = TRUE)
+        s <- stats::mad(M_between, center = med, na.rm = TRUE)
+
+        if (is.finite(s) && s > 0) {
+          keep_between <- abs(M_between - med) <= 3 * s
+        } else {
+          keep_between <- rep(TRUE, length(M_between))
+        }
+
+      } else if (trim.method == "quantile") {
+
+        lo <- stats::quantile(M_between, 0.01, na.rm = TRUE)
+        hi <- stats::quantile(M_between, 0.99, na.rm = TRUE)
+
+        keep_between <- M_between >= lo & M_between <= hi
+
+      } else {
+
+        keep_between <- abs(M_between) < d
+      }
+
+      M_between <- M_between[keep_between]
+      A_between <- A_between[keep_between]
+      W_between <- W_between[keep_between]
+    }
+  }
+
+  # -----------------------------
+  # 6. combine variance-training information
+  # -----------------------------
+
+  M_all <- c(M_within, M_between)
+  A_all <- c(A_within, A_between)
+  W_all <- c(W_within, W_between)
 
   if (length(M_all) < 10) {
     stop("Too few pairwise differences to estimate variance trend")
   }
 
-  valid <- is.finite(M_all) & is.finite(A_all) & is.finite(W_all) & W_all > 0
-  M_all <- M_all[valid]
-  A_all <- A_all[valid]
-  W_all <- W_all[valid]
+  valid_all <- is.finite(M_all) &
+    is.finite(A_all) &
+    is.finite(W_all) &
+    W_all > 0
+
+  M_all <- M_all[valid_all]
+  A_all <- A_all[valid_all]
+  W_all <- W_all[valid_all]
 
   if (length(M_all) < 10) {
     stop("Too few valid pairwise differences to estimate variance trend")
-  }
-
-  # -----------------------------
-  # 5. robust outlier trimming
-  # -----------------------------
-
-  if (trim.method == "mad") {
-
-    med <- stats::median(M_all, na.rm = TRUE)
-    s <- stats::mad(M_all, center = med, na.rm = TRUE)
-
-    if (is.finite(s) && s > 0) {
-      keep <- abs(M_all - med) <= 3 * s
-    } else {
-      keep <- rep(TRUE, length(M_all))
-    }
-
-  } else if (trim.method == "quantile") {
-
-    lo <- stats::quantile(M_all, 0.01, na.rm = TRUE)
-    hi <- stats::quantile(M_all, 0.99, na.rm = TRUE)
-    keep <- M_all >= lo & M_all <= hi
-
-  } else {
-
-    keep <- abs(M_all) < d
-  }
-
-  M_all <- M_all[keep]
-  A_all <- A_all[keep]
-  W_all <- W_all[keep]
-
-  if (length(M_all) < 10) {
-    stop("Too few observations after trimming")
   }
 
   # -----------------------------
