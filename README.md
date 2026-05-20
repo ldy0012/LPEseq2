@@ -1,8 +1,8 @@
 # LPEseq2
 
-LPEseq2 is an R package for local pooled error-based ANOVA of RNA-seq count data.
+LPEseq2 is an R package for differential expression analysis of RNA-seq count data using local pooled error-based ANOVA and conventional one-way ANOVA.
 
-The package provides functions for preprocessing RNA-seq count data, estimating intensity-dependent variance trends, and performing multi-group differential expression analysis using a local pooled error-based ANOVA framework.
+The package provides functions for preprocessing RNA-seq count data, estimating intensity-dependent variance trends, and performing multi-group differential expression analysis. LPEseq2 supports LPE-ANOVA for small-sample RNA-seq data, standard gene-wise one-way ANOVA for larger sample sizes, and an automatic mode that selects the analysis method based on group sample size.
 
 ## Installation
 
@@ -34,7 +34,7 @@ BiocManager::install(c("edgeR", "DESeq2"))
 | Function | Description |
 |---|---|
 | `LPE_preprocess()` | Checks count matrix and sample metadata, filters low-count genes, and performs normalization |
-| `LPE_ANOVA()` | Performs local pooled error-based ANOVA for multi-group differential expression analysis |
+| `LPE_ANOVA()` | Performs LPE-ANOVA, standard one-way ANOVA, or automatic method selection for multi-group differential expression analysis |
 | `LPE_ANOVA_var()` | Estimates an intensity-dependent variance trend and stores trimming information |
 
 ## Input format
@@ -92,6 +92,8 @@ prep <- LPE_preprocess(
 
 res <- LPE_ANOVA(
   object = prep,
+  analysis.method = "auto",
+  standard.min.group.n = 5,
   n.bin = 100,
   df = 10,
   use_weighted_between = FALSE,
@@ -100,9 +102,12 @@ res <- LPE_ANOVA(
 )
 
 head(res)
+attr(res, "analysis.method")
 ```
 
 ### Advanced example with local fixed trimming
+
+The `local_fixed` trimming method is useful when weighted between-group differences are included in variance trend estimation.
 
 ```r
 res_local <- LPE_ANOVA(
@@ -121,6 +126,68 @@ res_local <- LPE_ANOVA(
 head(res_local)
 attr(res_local, "trim.info")
 ```
+
+## Analysis methods
+
+LPEseq2 supports three analysis modes through the `analysis.method` argument:
+
+| Method | Description |
+|---|---|
+| `LPE` | Uses local pooled error-based ANOVA. This mode estimates an intensity-dependent pooled variance trend and is useful for small-sample RNA-seq data. |
+| `standard_anova` | Uses conventional gene-wise one-way ANOVA based on within-group residual variance. This mode is more appropriate when each group has enough samples to estimate gene-wise variance. |
+| `auto` | Automatically selects the analysis method based on the minimum group sample size. |
+
+### LPE-ANOVA mode
+
+```r
+res_lpe <- LPE_ANOVA(
+  object = prep,
+  analysis.method = "LPE",
+  n.bin = 100,
+  df = 10,
+  use_weighted_between = FALSE,
+  p.method = "chisq",
+  verbose = FALSE
+)
+```
+
+### Standard one-way ANOVA mode
+
+```r
+res_standard <- LPE_ANOVA(
+  object = prep,
+  analysis.method = "standard_anova",
+  p.method = "chisq",
+  verbose = FALSE
+)
+```
+
+### Auto mode
+
+In `auto` mode, LPEseq2 selects standard one-way ANOVA when every group has at least `standard.min.group.n` samples. Otherwise, LPE-ANOVA is used.
+
+```r
+res_auto <- LPE_ANOVA(
+  object = prep,
+  analysis.method = "auto",
+  standard.min.group.n = 5,
+  n.bin = 100,
+  df = 10,
+  use_weighted_between = FALSE,
+  p.method = "chisq",
+  verbose = FALSE
+)
+
+attr(res_auto, "analysis.method")
+```
+
+The default threshold is:
+
+```r
+standard.min.group.n = 5
+```
+
+This threshold is a practical heuristic. It can be adjusted depending on the study design and the expected reliability of gene-wise variance estimation.
 
 ## Trimming options
 
@@ -180,22 +247,35 @@ This option can be useful for diagnostic comparison, but true differential expre
 
 ## Output
 
-`LPE_ANOVA()` returns a data frame with the following columns:
+## Output
+
+`LPE_ANOVA()` returns a data frame with gene-level test statistics.
+
+Common output columns include:
 
 | Column | Description |
 |---|---|
 | `gene` | Gene identifier |
 | `mean` | Mean expression value |
-| `var` | Estimated local pooled variance |
+| `var` | Estimated variance. For LPE-ANOVA, this is the local pooled variance. For standard ANOVA, this corresponds to within-group residual variance. |
 | `MS_between` | Between-group mean square |
 | `F` | Test statistic |
 | `p.value` | Raw p-value |
 | `q.value` | BH-adjusted p-value |
+| `method` | Analysis method used for the result |
 
-Trimming information is stored as an attribute of the result object.
+When `analysis.method = "standard_anova"`, additional columns may be returned:
+
+| Column | Description |
+|---|---|
+| `MS_within` | Within-group mean square |
+| `df1` | Numerator degrees of freedom |
+| `df2` | Denominator degrees of freedom |
+
+The selected analysis method is stored as an attribute of the result object.
 
 ```r
-attr(res, "trim.info")
+attr(res, "analysis.method")
 ```
 
 This includes the trimming method, threshold values, the number of between-group-derived values before and after trimming, and the number of removed values.
