@@ -49,8 +49,10 @@ differences can be included when replicate information is limited.</p>
 <span>  <span class="va">group</span>,</span>
 <span>  n.bin <span class="op">=</span> <span class="fl">100</span>,</span>
 <span>  df <span class="op">=</span> <span class="fl">10</span>,</span>
-<span>  trim.method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"mad"</span>, <span class="st">"quantile"</span>, <span class="st">"fixed"</span><span class="op">)</span>,</span>
+<span>  trim.method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"fixed"</span>, <span class="st">"local_fixed"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
 <span>  d <span class="op">=</span> <span class="fl">1.2</span>,</span>
+<span>  local.k <span class="op">=</span> <span class="fl">3</span>,</span>
+<span>  min.local.bin.size <span class="op">=</span> <span class="fl">10</span>,</span>
 <span>  use_weighted_between <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -76,20 +78,40 @@ differences can be included when replicate information is limited.</p>
 
 
 <dt id="arg-trim-method">trim.method<a class="anchor" aria-label="anchor" href="#arg-trim-method"></a></dt>
-<dd><p>Outlier trimming method. One of <code>"mad"</code>, <code>"quantile"</code>, or <code>"fixed"</code>.</p></dd>
+<dd><p>Outlier trimming method applied only to between-group
+differences. One of <code>"fixed"</code>, <code>"local_fixed"</code>, or <code>"none"</code>.
+<code>"fixed"</code> excludes between-group differences with
+<code>|D_between| &gt;= d</code>. <code>"local_fixed"</code> uses an A-bin-specific
+threshold estimated from within-group differences.</p></dd>
 
 
 <dt id="arg-d">d<a class="anchor" aria-label="anchor" href="#arg-d"></a></dt>
-<dd><p>Fixed trimming threshold used when <code>trim.method = "fixed"</code>.</p></dd>
+<dd><p>Fixed trimming threshold on the raw log2-scale difference.
+This threshold is applied to <code>D_between</code>, not to the variance-scaled
+<code>M_between</code>.</p></dd>
+
+
+<dt id="arg-local-k">local.k<a class="anchor" aria-label="anchor" href="#arg-local-k"></a></dt>
+<dd><p>Multiplier for the local MAD-based threshold used when
+<code>trim.method = "local_fixed"</code>. The local threshold is computed as
+<code>max(d, local.k * MAD(D_within_bin))</code>.</p></dd>
+
+
+<dt id="arg-min-local-bin-size">min.local.bin.size<a class="anchor" aria-label="anchor" href="#arg-min-local-bin-size"></a></dt>
+<dd><p>Minimum number of within-group differences required
+in an A-bin to estimate a local threshold. If insufficient, the method
+falls back to the fixed threshold <code>d</code>.</p></dd>
 
 
 <dt id="arg-use-weighted-between">use_weighted_between<a class="anchor" aria-label="anchor" href="#arg-use-weighted-between"></a></dt>
-<dd><p>Logical. Whether to include weighted between-group differences.</p></dd>
+<dd><p>Logical. Whether to include weighted between-group
+differences in variance trend estimation.</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A <code>smooth.spline</code> object representing the estimated variance trend.</p>
+    <p>A <code>smooth.spline</code> object representing the estimated variance
+trend. Trimming information is stored in <code>attr(object, "trim.info")</code>.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

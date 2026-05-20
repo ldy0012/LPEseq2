@@ -12,8 +12,10 @@ LPE_ANOVA_var(
   group,
   n.bin = 100,
   df = 10,
-  trim.method = c("mad", "quantile", "fixed"),
+  trim.method = c("fixed", "local_fixed", "none"),
   d = 1.2,
+  local.k = 3,
+  min.local.bin.size = 10,
   use_weighted_between = FALSE
 )
 ```
@@ -38,16 +40,36 @@ LPE_ANOVA_var(
 
 - trim.method:
 
-  Outlier trimming method. One of `"mad"`, `"quantile"`, or `"fixed"`.
+  Outlier trimming method applied only to between-group differences. One
+  of `"fixed"`, `"local_fixed"`, or `"none"`. `"fixed"` excludes
+  between-group differences with `|D_between| >= d`. `"local_fixed"`
+  uses an A-bin-specific threshold estimated from within-group
+  differences.
 
 - d:
 
-  Fixed trimming threshold used when `trim.method = "fixed"`.
+  Fixed trimming threshold on the raw log2-scale difference. This
+  threshold is applied to `D_between`, not to the variance-scaled
+  `M_between`.
+
+- local.k:
+
+  Multiplier for the local MAD-based threshold used when
+  `trim.method = "local_fixed"`. The local threshold is computed as
+  `max(d, local.k * MAD(D_within_bin))`.
+
+- min.local.bin.size:
+
+  Minimum number of within-group differences required in an A-bin to
+  estimate a local threshold. If insufficient, the method falls back to
+  the fixed threshold `d`.
 
 - use_weighted_between:
 
-  Logical. Whether to include weighted between-group differences.
+  Logical. Whether to include weighted between-group differences in
+  variance trend estimation.
 
 ## Value
 
 A `smooth.spline` object representing the estimated variance trend.
+Trimming information is stored in `attr(object, "trim.info")`.

@@ -94,7 +94,7 @@
 </tr>
 <tr>
 <td><code><a href="reference/LPE_ANOVA_var.html">LPE_ANOVA_var()</a></code></td>
-<td>Estimates an intensity-dependent variance trend</td>
+<td>Estimates an intensity-dependent variance trend and stores trimming information</td>
 </tr>
 </tbody>
 </table>
@@ -150,12 +150,105 @@
 <span></span>
 <span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_ANOVA.html">LPE_ANOVA</a></span><span class="op">(</span></span>
 <span>  object <span class="op">=</span> <span class="va">prep</span>,</span>
-<span>  trim.method <span class="op">=</span> <span class="st">"mad"</span>,</span>
+<span>  n.bin <span class="op">=</span> <span class="fl">100</span>,</span>
+<span>  df <span class="op">=</span> <span class="fl">10</span>,</span>
+<span>  use_weighted_between <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  p.method <span class="op">=</span> <span class="st">"chisq"</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span></code></pre></div>
+<div class="section level3">
+<h3 id="advanced-example-with-local-fixed-trimming">Advanced example with local fixed trimming<a class="anchor" aria-label="anchor" href="#advanced-example-with-local-fixed-trimming"></a>
+</h3>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">res_local</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_ANOVA.html">LPE_ANOVA</a></span><span class="op">(</span></span>
+<span>  object <span class="op">=</span> <span class="va">prep</span>,</span>
+<span>  n.bin <span class="op">=</span> <span class="fl">100</span>,</span>
+<span>  df <span class="op">=</span> <span class="fl">10</span>,</span>
+<span>  trim.method <span class="op">=</span> <span class="st">"local_fixed"</span>,</span>
+<span>  d <span class="op">=</span> <span class="fl">1.2</span>,</span>
+<span>  local.k <span class="op">=</span> <span class="fl">3</span>,</span>
+<span>  min.local.bin.size <span class="op">=</span> <span class="fl">10</span>,</span>
+<span>  use_weighted_between <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  p.method <span class="op">=</span> <span class="st">"chisq"</span>,</span>
+<span>  verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">res_local</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res_local</span>, <span class="st">"trim.info"</span><span class="op">)</span></span></code></pre></div>
+</div>
+</div>
+<div class="section level2">
+<h2 id="trimming-options">Trimming options<a class="anchor" aria-label="anchor" href="#trimming-options"></a>
+</h2>
+<p>LPEseq2 supports three between-group trimming methods:</p>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr>
+<th>Method</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><code>fixed</code></td>
+<td>Removes between-group differences whose absolute raw log2 difference is greater than or equal to the fixed threshold <code>d</code>
+</td>
+</tr>
+<tr>
+<td><code>local_fixed</code></td>
+<td>Uses an A-bin-specific local threshold estimated from within-group differences</td>
+</tr>
+<tr>
+<td><code>none</code></td>
+<td>Uses between-group-derived differences without outlier trimming</td>
+</tr>
+</tbody>
+</table>
+<p>Trimming is applied only to between-group-derived differences.<br>
+Within-group pairwise differences are retained because they represent replicate-based residual variation.</p>
+</div>
+<div class="section level2">
+<h2 id="weighted-between-group-differences">Weighted between-group differences<a class="anchor" aria-label="anchor" href="#weighted-between-group-differences"></a>
+</h2>
+<p>The <code>use_weighted_between</code> option controls whether between-group-derived differences are included in variance trend estimation.</p>
+<p>When <code>use_weighted_between = FALSE</code>, LPEseq2 primarily uses within-group pairwise differences for variance trend estimation.</p>
+<p>When <code>use_weighted_between = TRUE</code>, LPEseq2 additionally uses weighted between-group differences. This can be useful when replicate information is limited, but between-group differences may contain true differential expression signals.</p>
+<p>Therefore, when <code>use_weighted_between = TRUE</code>, trimming methods such as <code>fixed</code> or <code>local_fixed</code> can be used to reduce the influence of large between-group differences.</p>
+<div class="section level3">
+<h3 id="fixed">fixed<a class="anchor" aria-label="anchor" href="#fixed"></a>
+</h3>
+<p>The <code>fixed</code> method applies one global threshold to raw between-group log2 differences.</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">D_between</span><span class="op">)</span> <span class="op">&lt;</span> <span class="va">d</span></span></code></pre></div>
+<p>Here, <code>D_between</code> is the raw log2-scale difference between group means, and <code>d</code> is the fixed trimming threshold.</p>
+</div>
+<div class="section level3">
+<h3 id="local_fixed">local_fixed<a class="anchor" aria-label="anchor" href="#local_fixed"></a>
+</h3>
+<p>The <code>local_fixed</code> method estimates a local threshold for each expression-intensity bin.</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">d_local</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">d</span>, <span class="va">local.k</span> <span class="op">*</span> <span class="fu">MAD</span><span class="op">(</span><span class="va">D_within_bin</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p>where:</p>
+<ul>
+<li>
+<code>D_within_bin</code> is the set of within-group raw log2 differences in the corresponding A-bin.</li>
+<li>
+<code>local.k</code> is a multiplier for the local MAD-based threshold.</li>
+<li>
+<code>d</code> is used as the minimum threshold.</li>
+</ul>
+<p>If there are not enough within-group differences in an A-bin, the method falls back to the fixed threshold <code>d</code>.</p>
+</div>
+<div class="section level3">
+<h3 id="none">none<a class="anchor" aria-label="anchor" href="#none"></a>
+</h3>
+<p>The <code>none</code> method does not remove between-group-derived differences.</p>
+<p>This option can be useful for diagnostic comparison, but true differential expression signals may influence variance trend estimation when many genes are differentially expressed.</p>
+</div>
 </div>
 <div class="section level2">
 <h2 id="output">Output<a class="anchor" aria-label="anchor" href="#output"></a>
@@ -197,6 +290,11 @@
 </tr>
 </tbody>
 </table>
+<p>Trimming information is stored as an attribute of the result object.</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"trim.info"</span><span class="op">)</span></span></code></pre></div>
+<p>This includes the trimming method, threshold values, the number of between-group-derived values before and after trimming, and the number of removed values.</p>
+<p>For <code>trim.method = "local_fixed"</code>, the threshold table contains A-bin-specific local thresholds.</p>
 </div>
 <div class="section level2">
 <h2 id="website">Website<a class="anchor" aria-label="anchor" href="#website"></a>

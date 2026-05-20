@@ -42,7 +42,7 @@ BiocManager::install(c("edgeR", "DESeq2"))
 |----|----|
 | [`LPE_preprocess()`](https://ldy0012.github.io/LPEseq2/reference/LPE_preprocess.md) | Checks count matrix and sample metadata, filters low-count genes, and performs normalization |
 | [`LPE_ANOVA()`](https://ldy0012.github.io/LPEseq2/reference/LPE_ANOVA.md) | Performs local pooled error-based ANOVA for multi-group differential expression analysis |
-| [`LPE_ANOVA_var()`](https://ldy0012.github.io/LPEseq2/reference/LPE_ANOVA_var.md) | Estimates an intensity-dependent variance trend |
+| [`LPE_ANOVA_var()`](https://ldy0012.github.io/LPEseq2/reference/LPE_ANOVA_var.md) | Estimates an intensity-dependent variance trend and stores trimming information |
 
 ## Input format
 
@@ -104,13 +104,108 @@ prep <- LPE_preprocess(
 
 res <- LPE_ANOVA(
   object = prep,
-  trim.method = "mad",
+  n.bin = 100,
+  df = 10,
+  use_weighted_between = FALSE,
   p.method = "chisq",
   verbose = FALSE
 )
 
 head(res)
 ```
+
+### Advanced example with local fixed trimming
+
+``` r
+
+res_local <- LPE_ANOVA(
+  object = prep,
+  n.bin = 100,
+  df = 10,
+  trim.method = "local_fixed",
+  d = 1.2,
+  local.k = 3,
+  min.local.bin.size = 10,
+  use_weighted_between = TRUE,
+  p.method = "chisq",
+  verbose = FALSE
+)
+
+head(res_local)
+attr(res_local, "trim.info")
+```
+
+## Trimming options
+
+LPEseq2 supports three between-group trimming methods:
+
+| Method | Description |
+|----|----|
+| `fixed` | Removes between-group differences whose absolute raw log2 difference is greater than or equal to the fixed threshold `d` |
+| `local_fixed` | Uses an A-bin-specific local threshold estimated from within-group differences |
+| `none` | Uses between-group-derived differences without outlier trimming |
+
+Trimming is applied only to between-group-derived differences.  
+Within-group pairwise differences are retained because they represent
+replicate-based residual variation.
+
+## Weighted between-group differences
+
+The `use_weighted_between` option controls whether between-group-derived
+differences are included in variance trend estimation.
+
+When `use_weighted_between = FALSE`, LPEseq2 primarily uses within-group
+pairwise differences for variance trend estimation.
+
+When `use_weighted_between = TRUE`, LPEseq2 additionally uses weighted
+between-group differences. This can be useful when replicate information
+is limited, but between-group differences may contain true differential
+expression signals.
+
+Therefore, when `use_weighted_between = TRUE`, trimming methods such as
+`fixed` or `local_fixed` can be used to reduce the influence of large
+between-group differences.
+
+### fixed
+
+The `fixed` method applies one global threshold to raw between-group
+log2 differences.
+
+``` r
+
+abs(D_between) < d
+```
+
+Here, `D_between` is the raw log2-scale difference between group means,
+and `d` is the fixed trimming threshold.
+
+### local_fixed
+
+The `local_fixed` method estimates a local threshold for each
+expression-intensity bin.
+
+``` r
+
+d_local = max(d, local.k * MAD(D_within_bin))
+```
+
+where:
+
+- `D_within_bin` is the set of within-group raw log2 differences in the
+  corresponding A-bin.
+- `local.k` is a multiplier for the local MAD-based threshold.
+- `d` is used as the minimum threshold.
+
+If there are not enough within-group differences in an A-bin, the method
+falls back to the fixed threshold `d`.
+
+### none
+
+The `none` method does not remove between-group-derived differences.
+
+This option can be useful for diagnostic comparison, but true
+differential expression signals may influence variance trend estimation
+when many genes are differentially expressed.
 
 ## Output
 
@@ -126,6 +221,20 @@ returns a data frame with the following columns:
 | `F`          | Test statistic                  |
 | `p.value`    | Raw p-value                     |
 | `q.value`    | BH-adjusted p-value             |
+
+Trimming information is stored as an attribute of the result object.
+
+``` r
+
+attr(res, "trim.info")
+```
+
+This includes the trimming method, threshold values, the number of
+between-group-derived values before and after trimming, and the number
+of removed values.
+
+For `trim.method = "local_fixed"`, the threshold table contains
+A-bin-specific local thresholds.
 
 ## Website
 
