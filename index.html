@@ -48,8 +48,8 @@
   <main id="main" class="col-md-9"><div class="section level1">
 <div class="page-header"><h1 id="lpeseq2">LPEseq2<a class="anchor" aria-label="anchor" href="#lpeseq2"></a>
 </h1></div>
-<p>LPEseq2 is an R package for local pooled error-based ANOVA of RNA-seq count data.</p>
-<p>The package provides functions for preprocessing RNA-seq count data, estimating intensity-dependent variance trends, and performing multi-group differential expression analysis using a local pooled error-based ANOVA framework.</p>
+<p>LPEseq2 is an R package for differential expression analysis of RNA-seq count data using local pooled error-based ANOVA and conventional one-way ANOVA.</p>
+<p>The package provides functions for preprocessing RNA-seq count data, estimating intensity-dependent variance trends, and performing multi-group differential expression analysis. LPEseq2 supports LPE-ANOVA for small-sample RNA-seq data, standard gene-wise one-way ANOVA for larger sample sizes, and an automatic mode that selects the analysis method based on group sample size.</p>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
@@ -90,7 +90,7 @@
 </tr>
 <tr>
 <td><code><a href="reference/LPE_ANOVA.html">LPE_ANOVA()</a></code></td>
-<td>Performs local pooled error-based ANOVA for multi-group differential expression analysis</td>
+<td>Performs LPE-ANOVA, standard one-way ANOVA, or automatic method selection for multi-group differential expression analysis</td>
 </tr>
 <tr>
 <td><code><a href="reference/LPE_ANOVA_var.html">LPE_ANOVA_var()</a></code></td>
@@ -150,6 +150,8 @@
 <span></span>
 <span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_ANOVA.html">LPE_ANOVA</a></span><span class="op">(</span></span>
 <span>  object <span class="op">=</span> <span class="va">prep</span>,</span>
+<span>  analysis.method <span class="op">=</span> <span class="st">"auto"</span>,</span>
+<span>  standard.min.group.n <span class="op">=</span> <span class="fl">5</span>,</span>
 <span>  n.bin <span class="op">=</span> <span class="fl">100</span>,</span>
 <span>  df <span class="op">=</span> <span class="fl">10</span>,</span>
 <span>  use_weighted_between <span class="op">=</span> <span class="cn">FALSE</span>,</span>
@@ -157,10 +159,12 @@
 <span>  verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"analysis.method"</span><span class="op">)</span></span></code></pre></div>
 <div class="section level3">
 <h3 id="advanced-example-with-local-fixed-trimming">Advanced example with local fixed trimming<a class="anchor" aria-label="anchor" href="#advanced-example-with-local-fixed-trimming"></a>
 </h3>
+<p>The <code>local_fixed</code> trimming method is useful when weighted between-group differences are included in variance trend estimation.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">res_local</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_ANOVA.html">LPE_ANOVA</a></span><span class="op">(</span></span>
 <span>  object <span class="op">=</span> <span class="va">prep</span>,</span>
@@ -177,6 +181,82 @@
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">res_local</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res_local</span>, <span class="st">"trim.info"</span><span class="op">)</span></span></code></pre></div>
+</div>
+</div>
+<div class="section level2">
+<h2 id="analysis-methods">Analysis methods<a class="anchor" aria-label="anchor" href="#analysis-methods"></a>
+</h2>
+<p>LPEseq2 supports three analysis modes through the <code>analysis.method</code> argument:</p>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr>
+<th>Method</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><code>LPE</code></td>
+<td>Uses local pooled error-based ANOVA. This mode estimates an intensity-dependent pooled variance trend and is useful for small-sample RNA-seq data.</td>
+</tr>
+<tr>
+<td><code>standard_anova</code></td>
+<td>Uses conventional gene-wise one-way ANOVA based on within-group residual variance. This mode is more appropriate when each group has enough samples to estimate gene-wise variance.</td>
+</tr>
+<tr>
+<td><code>auto</code></td>
+<td>Automatically selects the analysis method based on the minimum group sample size.</td>
+</tr>
+</tbody>
+</table>
+<div class="section level3">
+<h3 id="lpe-anova-mode">LPE-ANOVA mode<a class="anchor" aria-label="anchor" href="#lpe-anova-mode"></a>
+</h3>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">res_lpe</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_ANOVA.html">LPE_ANOVA</a></span><span class="op">(</span></span>
+<span>  object <span class="op">=</span> <span class="va">prep</span>,</span>
+<span>  analysis.method <span class="op">=</span> <span class="st">"LPE"</span>,</span>
+<span>  n.bin <span class="op">=</span> <span class="fl">100</span>,</span>
+<span>  df <span class="op">=</span> <span class="fl">10</span>,</span>
+<span>  use_weighted_between <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  p.method <span class="op">=</span> <span class="st">"chisq"</span>,</span>
+<span>  verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="standard-one-way-anova-mode">Standard one-way ANOVA mode<a class="anchor" aria-label="anchor" href="#standard-one-way-anova-mode"></a>
+</h3>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">res_standard</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_ANOVA.html">LPE_ANOVA</a></span><span class="op">(</span></span>
+<span>  object <span class="op">=</span> <span class="va">prep</span>,</span>
+<span>  analysis.method <span class="op">=</span> <span class="st">"standard_anova"</span>,</span>
+<span>  p.method <span class="op">=</span> <span class="st">"chisq"</span>,</span>
+<span>  verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="auto-mode">Auto mode<a class="anchor" aria-label="anchor" href="#auto-mode"></a>
+</h3>
+<p>In <code>auto</code> mode, LPEseq2 selects standard one-way ANOVA when every group has at least <code>standard.min.group.n</code> samples. Otherwise, LPE-ANOVA is used.</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">res_auto</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_ANOVA.html">LPE_ANOVA</a></span><span class="op">(</span></span>
+<span>  object <span class="op">=</span> <span class="va">prep</span>,</span>
+<span>  analysis.method <span class="op">=</span> <span class="st">"auto"</span>,</span>
+<span>  standard.min.group.n <span class="op">=</span> <span class="fl">5</span>,</span>
+<span>  n.bin <span class="op">=</span> <span class="fl">100</span>,</span>
+<span>  df <span class="op">=</span> <span class="fl">10</span>,</span>
+<span>  use_weighted_between <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  p.method <span class="op">=</span> <span class="st">"chisq"</span>,</span>
+<span>  verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res_auto</span>, <span class="st">"analysis.method"</span><span class="op">)</span></span></code></pre></div>
+<p>The default threshold is:</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">standard.min.group.n</span> <span class="op">=</span> <span class="fl">5</span></span></code></pre></div>
+<p>This threshold is a practical heuristic. It can be adjusted depending on the study design and the expected reliability of gene-wise variance estimation.</p>
 </div>
 </div>
 <div class="section level2">
@@ -222,7 +302,7 @@ Within-group pairwise differences are retained because they represent replicate-
 <h3 id="fixed">fixed<a class="anchor" aria-label="anchor" href="#fixed"></a>
 </h3>
 <p>The <code>fixed</code> method applies one global threshold to raw between-group log2 differences.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">D_between</span><span class="op">)</span> <span class="op">&lt;</span> <span class="va">d</span></span></code></pre></div>
 <p>Here, <code>D_between</code> is the raw log2-scale difference between group means, and <code>d</code> is the fixed trimming threshold.</p>
 </div>
@@ -230,7 +310,7 @@ Within-group pairwise differences are retained because they represent replicate-
 <h3 id="local_fixed">local_fixed<a class="anchor" aria-label="anchor" href="#local_fixed"></a>
 </h3>
 <p>The <code>local_fixed</code> method estimates a local threshold for each expression-intensity bin.</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">d_local</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">d</span>, <span class="va">local.k</span> <span class="op">*</span> <span class="fu">MAD</span><span class="op">(</span><span class="va">D_within_bin</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <p>where:</p>
 <ul>
@@ -253,8 +333,17 @@ Within-group pairwise differences are retained because they represent replicate-
 <div class="section level2">
 <h2 id="output">Output<a class="anchor" aria-label="anchor" href="#output"></a>
 </h2>
-<p><code><a href="reference/LPE_ANOVA.html">LPE_ANOVA()</a></code> returns a data frame with the following columns:</p>
+</div>
+<div class="section level2">
+<h2 id="output-1">Output<a class="anchor" aria-label="anchor" href="#output-1"></a>
+</h2>
+<p><code><a href="reference/LPE_ANOVA.html">LPE_ANOVA()</a></code> returns a data frame with gene-level test statistics.</p>
+<p>Common output columns include:</p>
 <table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
 <thead><tr>
 <th>Column</th>
 <th>Description</th>
@@ -270,7 +359,7 @@ Within-group pairwise differences are retained because they represent replicate-
 </tr>
 <tr>
 <td><code>var</code></td>
-<td>Estimated local pooled variance</td>
+<td>Estimated variance. For LPE-ANOVA, this is the local pooled variance. For standard ANOVA, this corresponds to within-group residual variance.</td>
 </tr>
 <tr>
 <td><code>MS_between</code></td>
@@ -288,11 +377,36 @@ Within-group pairwise differences are retained because they represent replicate-
 <td><code>q.value</code></td>
 <td>BH-adjusted p-value</td>
 </tr>
+<tr>
+<td><code>method</code></td>
+<td>Analysis method used for the result</td>
+</tr>
 </tbody>
 </table>
-<p>Trimming information is stored as an attribute of the result object.</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"trim.info"</span><span class="op">)</span></span></code></pre></div>
+<p>When <code>analysis.method = "standard_anova"</code>, additional columns may be returned:</p>
+<table class="table">
+<thead><tr>
+<th>Column</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><code>MS_within</code></td>
+<td>Within-group mean square</td>
+</tr>
+<tr>
+<td><code>df1</code></td>
+<td>Numerator degrees of freedom</td>
+</tr>
+<tr>
+<td><code>df2</code></td>
+<td>Denominator degrees of freedom</td>
+</tr>
+</tbody>
+</table>
+<p>The selected analysis method is stored as an attribute of the result object.</p>
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"analysis.method"</span><span class="op">)</span></span></code></pre></div>
 <p>This includes the trimming method, threshold values, the number of between-group-derived values before and after trimming, and the number of removed values.</p>
 <p>For <code>trim.method = "local_fixed"</code>, the threshold table contains A-bin-specific local thresholds.</p>
 </div>
