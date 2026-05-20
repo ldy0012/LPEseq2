@@ -6,20 +6,29 @@
 #' @param object A list returned by \code{LPE_preprocess()}.
 #' @param n.bin Number of quantile bins used for variance trend estimation.
 #' @param df Degrees of freedom for smoothing spline.
-#' @param trim.method Outlier trimming method. One of \code{"mad"}, \code{"quantile"}, or \code{"fixed"}.
-#' @param d Fixed trimming threshold used when \code{trim.method = "fixed"}.
-#' @param use_weighted_between Logical. Whether to include weighted between-group differences in variance trend estimation.
+#' @param trim.method Outlier trimming method applied only to between-group
+#'   differences. One of \code{"fixed"}, \code{"local_fixed"}, or \code{"none"}.
+#' @param d Fixed trimming threshold on the raw log2-scale between-group difference.
+#' @param local.k Multiplier for the local MAD-based threshold used when
+#'   \code{trim.method = "local_fixed"}.
+#' @param min.local.bin.size Minimum number of within-group differences required
+#'   in an A-bin to estimate a local threshold.
+#' @param use_weighted_between Logical. Whether to include weighted between-group
+#'   differences in variance trend estimation.
 #' @param verbose Logical. Whether to print progress messages.
 #' @param p.method P-value calculation method. One of \code{"chisq"} or \code{"F_inf"}.
 #'
 #' @return A data.frame containing gene-level LPE-ANOVA statistics.
+#'   Trimming information is stored in \code{attr(result, "trim.info")}.
 #'
 #' @export
 LPE_ANOVA <- function(object,
                       n.bin = 100,
                       df = 10,
-                      trim.method = c("mad", "quantile", "fixed"),
+                      trim.method = c("fixed", "local_fixed", "none"),
                       d = 1.2,
+                      local.k = 3,
+                      min.local.bin.size = 10,
                       use_weighted_between = FALSE,
                       verbose = TRUE,
                       p.method = c("chisq", "F_inf")) {
@@ -89,8 +98,12 @@ LPE_ANOVA <- function(object,
     df = df,
     trim.method = trim.method,
     d = d,
+    local.k = local.k,
+    min.local.bin.size = min.local.bin.size,
     use_weighted_between = use_weighted_between
   )
+
+  trim.info <- attr(var.spline, "trim.info")
 
   gene.mean <- rowMeans(expr, na.rm = TRUE)
 
@@ -171,6 +184,8 @@ LPE_ANOVA <- function(object,
     q.value = adj.p,
     row.names = NULL
   )
+
+  attr(res, "trim.info") <- trim.info
 
   return(res)
 }

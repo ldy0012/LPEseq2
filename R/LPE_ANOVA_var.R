@@ -8,19 +8,34 @@
 #' @param group A factor or vector indicating sample group labels.
 #' @param n.bin Number of quantile bins used for variance trend estimation.
 #' @param df Degrees of freedom for smoothing spline.
-#' @param trim.method Outlier trimming method. One of \code{"mad"}, \code{"quantile"}, or \code{"fixed"}.
-#' @param d Fixed trimming threshold used when \code{trim.method = "fixed"}.
-#' @param use_weighted_between Logical. Whether to include weighted between-group differences.
-#'
-#' @return A \code{smooth.spline} object representing the estimated variance trend.
+#' @param trim.method Outlier trimming method applied only to between-group
+#'   differences. One of \code{"fixed"}, \code{"local_fixed"}, or \code{"none"}.
+#'   \code{"fixed"} excludes between-group differences with
+#'   \code{|D_between| >= d}. \code{"local_fixed"} uses an A-bin-specific
+#'   threshold estimated from within-group differences.
+#' @param d Fixed trimming threshold on the raw log2-scale difference.
+#'   This threshold is applied to \code{D_between}, not to the variance-scaled
+#'   \code{M_between}.
+#' @param local.k Multiplier for the local MAD-based threshold used when
+#'   \code{trim.method = "local_fixed"}. The local threshold is computed as
+#'   \code{max(d, local.k * MAD(D_within_bin))}.
+#' @param min.local.bin.size Minimum number of within-group differences required
+#'   in an A-bin to estimate a local threshold. If insufficient, the method
+#'   falls back to the fixed threshold \code{d}.
+#' @param use_weighted_between Logical. Whether to include weighted between-group
+#'   differences in variance trend estimation.
+#' @return A \code{smooth.spline} object representing the estimated variance
+#'   trend. Trimming information is stored in \code{attr(object, "trim.info")}.
 #'
 #' @export
 LPE_ANOVA_var <- function(expr,
                           group,
                           n.bin = 100,
                           df = 10,
-                          trim.method = c("mad", "quantile", "fixed"),
+                          trim.method = c("fixed", "local_fixed", "none"),
                           d = 1.2,
+                          local.k = 3,
+                          min.local.bin.size = 10,
                           use_weighted_between = FALSE) {
 
   trim.method <- match.arg(trim.method)
@@ -57,6 +72,16 @@ LPE_ANOVA_var <- function(expr,
     stop("d must be a single positive numeric value")
   }
 
+  if (!is.numeric(local.k) || length(local.k) != 1 || local.k <= 0) {
+    stop("local.k must be a single positive numeric value")
+  }
+
+  if (!is.numeric(min.local.bin.size) ||
+      length(min.local.bin.size) != 1 ||
+      min.local.bin.size < 2) {
+    stop("min.local.bin.size must be a single numeric value >= 2")
+  }
+
   if (!is.logical(use_weighted_between) || length(use_weighted_between) != 1) {
     stop("use_weighted_between must be TRUE or FALSE")
   }
@@ -69,11 +94,17 @@ LPE_ANOVA_var <- function(expr,
     stop("At least two groups are required")
   }
 
-  split_index <- split(seq_along(group), group)
+  if (trim.method == "local_fixed" &&
+      !use_weighted_between &&
+      !all(n_i == 1)) {
+    warning(
+      "trim.method = 'local_fixed' has no effect when ",
+      "use_weighted_between = FALSE, unless all groups are non-replicated. ",
+      "Variance trend estimation will rely only on within-group differences."
+    )
+  }
 
-  M_all <- numeric(0)
-  A_all <- numeric(0)
-  W_all <- numeric(0)
+  split_index <- split(seq_along(group), group)
 
   # -----------------------------
   # Initialize containers by source
@@ -82,10 +113,12 @@ LPE_ANOVA_var <- function(expr,
   M_within <- numeric(0)
   A_within <- numeric(0)
   W_within <- numeric(0)
+  D_within <- numeric(0)
 
   M_between <- numeric(0)
   A_between <- numeric(0)
   W_between <- numeric(0)
+  D_between <- numeric(0)
 
   # -----------------------------
   # 2. within-group pairwise differences
@@ -106,6 +139,8 @@ LPE_ANOVA_var <- function(expr,
         yi <- y[comb[1, ]]
         yj <- y[comb[2, ]]
 
+        D_within <- c(D_within, yi - yj)
+
         M_within <- c(M_within, (yi - yj) / sqrt(2))
         A_within <- c(A_within, (yi + yj) / 2)
         W_within <- c(W_within, rep(1, ncol(comb)))
@@ -117,11 +152,13 @@ LPE_ANOVA_var <- function(expr,
   valid_within <- is.finite(M_within) &
     is.finite(A_within) &
     is.finite(W_within) &
+    is.finite(D_within) &
     W_within > 0
 
   M_within <- M_within[valid_within]
   A_within <- A_within[valid_within]
   W_within <- W_within[valid_within]
+  D_within <- D_within[valid_within]
 
   # -----------------------------
   # 3. optional weighted between-group information
@@ -132,8 +169,8 @@ LPE_ANOVA_var <- function(expr,
   if (use_weighted_between) {
     warning(
       "Between-group differences are used for variance training. ",
-      "Outlier trimming will be applied only to between-group differences. ",
-      "This may reduce the influence of truly differentially expressed genes."
+      "Outlier trimming will be applied only to raw between-group log2 differences ",
+      "using D_between, while within-group differences are retained."
     )
 
     for (g in seq_len(nrow(expr))) {
@@ -152,13 +189,15 @@ LPE_ANOVA_var <- function(expr,
           next
         }
 
-        m_star <- (group_means[i1] - group_means[i2]) /
-          sqrt(1 / n1 + 1 / n2)
+        d_raw <- group_means[i1] - group_means[i2]
+
+        m_star <- d_raw / sqrt(1 / n1 + 1 / n2)
 
         a_val <- (group_means[i1] + group_means[i2]) / 2
 
         alpha <- min(n1, n2) / (n1 + n2)
 
+        D_between <- c(D_between, d_raw)
         M_between <- c(M_between, m_star)
         A_between <- c(A_between, a_val)
         W_between <- c(W_between, alpha)
@@ -176,7 +215,11 @@ LPE_ANOVA_var <- function(expr,
     warning(
       "All groups have only one sample. ",
       "Variance estimation relies entirely on between-group differences. ",
-      "Outlier trimming will be applied to these between-group differences. ",
+      if (trim.method != "none") {
+        "Outlier trimming will be applied to these between-group differences. "
+      } else {
+        "No outlier trimming will be applied because trim.method = 'none'. "
+      },
       "P-values should be interpreted cautiously."
     )
 
@@ -187,6 +230,8 @@ LPE_ANOVA_var <- function(expr,
       yi <- y[comb_g[1, ]]
       yj <- y[comb_g[2, ]]
 
+      D_between <- c(D_between, yi - yj)
+
       M_between <- c(M_between, (yi - yj) / sqrt(2))
       A_between <- c(A_between, (yi + yj) / 2)
       W_between <- c(W_between, rep(1, ncol(comb_g)))
@@ -194,49 +239,192 @@ LPE_ANOVA_var <- function(expr,
   }
 
   # -----------------------------
-  # 5. robust outlier trimming
+  # 5. outlier trimming
   #    Apply trimming only to between-derived values.
+  #    Trimming is based on raw log2 differences (D_between),
+  #    not variance-scaled M_between.
   # -----------------------------
+
+  trim.info <- list(
+    method = trim.method,
+    d = d,
+    local.k = local.k,
+    min.local.bin.size = min.local.bin.size,
+    n_between_before = length(M_between),
+    n_between_after = length(M_between),
+    n_between_removed = 0,
+    threshold.table = data.frame()
+  )
 
   if (length(M_between) > 0) {
 
     valid_between <- is.finite(M_between) &
       is.finite(A_between) &
       is.finite(W_between) &
+      is.finite(D_between) &
       W_between > 0
 
     M_between <- M_between[valid_between]
     A_between <- A_between[valid_between]
     W_between <- W_between[valid_between]
+    D_between <- D_between[valid_between]
 
-    if (length(M_between) >= 10) {
+    n_between_before <- length(M_between)
 
-      if (trim.method == "mad") {
+    keep_between <- rep(TRUE, length(M_between))
+    threshold.list <- list()
 
-        med <- stats::median(M_between, na.rm = TRUE)
-        s <- stats::mad(M_between, center = med, na.rm = TRUE)
+    if (trim.method != "none") {
 
-        if (is.finite(s) && s > 0) {
-          keep_between <- abs(M_between - med) <= 3 * s
+      if (trim.method == "fixed") {
+
+        keep_between <- abs(D_between) < d
+
+        threshold.list[[1]] <- data.frame(
+          bin = 1,
+          A_low = min(A_between, na.rm = TRUE),
+          A_high = max(A_between, na.rm = TRUE),
+          d_local = d,
+          n_within = length(D_within),
+          n_between = length(D_between),
+          n_removed = sum(!keep_between)
+        )
+
+      } else if (trim.method == "local_fixed") {
+
+        if (length(D_within) < min.local.bin.size) {
+
+          keep_between <- abs(D_between) < d
+
+          threshold.list[[1]] <- data.frame(
+            bin = 1,
+            A_low = min(A_between, na.rm = TRUE),
+            A_high = max(A_between, na.rm = TRUE),
+            d_local = d,
+            n_within = length(D_within),
+            n_between = length(D_between),
+            n_removed = sum(!keep_between)
+          )
+
         } else {
-          keep_between <- rep(TRUE, length(M_between))
+
+          # A bin은 within + between의 A 분포를 함께 사용해서 만든다.
+          A_for_breaks <- c(A_within, A_between)
+
+          n.local.bin <- min(n.bin, floor(length(A_for_breaks) / min.local.bin.size))
+
+          if (n.local.bin < 5) {
+
+            keep_between <- abs(D_between) < d
+
+            threshold.list[[1]] <- data.frame(
+              bin = 1,
+              A_low = min(A_between, na.rm = TRUE),
+              A_high = max(A_between, na.rm = TRUE),
+              d_local = d,
+              n_within = length(D_within),
+              n_between = length(D_between),
+              n_removed = sum(!keep_between)
+            )
+
+          } else {
+
+            probs.local <- seq(0, 1, length.out = n.local.bin + 1)
+
+            breaks <- unique(as.numeric(stats::quantile(
+              A_for_breaks,
+              probs = probs.local,
+              na.rm = TRUE
+            )))
+
+            if (length(breaks) < 5) {
+
+              keep_between <- abs(D_between) < d
+
+              threshold.list[[1]] <- data.frame(
+                bin = 1,
+                A_low = min(A_between, na.rm = TRUE),
+                A_high = max(A_between, na.rm = TRUE),
+                d_local = d,
+                n_within = length(D_within),
+                n_between = length(D_between),
+                n_removed = sum(!keep_between)
+              )
+
+            } else {
+
+              for (i in 2:length(breaks)) {
+
+                if (i == length(breaks)) {
+                  idx_within_bin <- which(A_within >= breaks[i - 1] &
+                                            A_within <= breaks[i])
+                  idx_between_bin <- which(A_between >= breaks[i - 1] &
+                                             A_between <= breaks[i])
+                } else {
+                  idx_within_bin <- which(A_within >= breaks[i - 1] &
+                                            A_within < breaks[i])
+                  idx_between_bin <- which(A_between >= breaks[i - 1] &
+                                             A_between < breaks[i])
+                }
+
+                if (length(idx_between_bin) == 0) {
+                  next
+                }
+
+                if (length(idx_within_bin) >= min.local.bin.size) {
+
+                  D_within_bin <- D_within[idx_within_bin]
+
+                  med <- stats::median(D_within_bin, na.rm = TRUE)
+
+                  s_b <- stats::mad(
+                    D_within_bin,
+                    center = med,
+                    constant = 1.4826,
+                    na.rm = TRUE
+                  )
+
+                  if (is.finite(s_b) && s_b > 0) {
+                    d_local <- max(d, local.k * s_b)
+                  } else {
+                    d_local <- d
+                  }
+
+                } else {
+                  d_local <- d
+                }
+
+                keep_before <- keep_between[idx_between_bin]
+
+                keep_between[idx_between_bin] <- abs(D_between[idx_between_bin]) < d_local
+
+                threshold.list[[length(threshold.list) + 1]] <- data.frame(
+                  bin = i - 1,
+                  A_low = breaks[i - 1],
+                  A_high = breaks[i],
+                  d_local = d_local,
+                  n_within = length(idx_within_bin),
+                  n_between = length(idx_between_bin),
+                  n_removed = sum(keep_before & !keep_between[idx_between_bin])
+                )
+              }
+            }
+          }
         }
-
-      } else if (trim.method == "quantile") {
-
-        lo <- stats::quantile(M_between, 0.01, na.rm = TRUE)
-        hi <- stats::quantile(M_between, 0.99, na.rm = TRUE)
-
-        keep_between <- M_between >= lo & M_between <= hi
-
-      } else {
-
-        keep_between <- abs(M_between) < d
       }
 
       M_between <- M_between[keep_between]
       A_between <- A_between[keep_between]
       W_between <- W_between[keep_between]
+      D_between <- D_between[keep_between]
+    }
+
+    trim.info$n_between_before <- n_between_before
+    trim.info$n_between_after <- length(M_between)
+    trim.info$n_between_removed <- n_between_before - length(M_between)
+
+    if (length(threshold.list) > 0) {
+      trim.info$threshold.table <- do.call(rbind, threshold.list)
     }
   }
 
@@ -341,6 +529,8 @@ LPE_ANOVA_var <- function(expr,
     y = base.var$var.M,
     df = df_use
   )
+
+  attr(sm.spline, "trim.info") <- trim.info
 
   return(sm.spline)
 }

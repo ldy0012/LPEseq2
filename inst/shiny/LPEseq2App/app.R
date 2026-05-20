@@ -70,18 +70,40 @@ ui <- fluidPage(
         min = 2
       ),
       
-      # selectInput(
-      #   "trim_method",
-      #   "Trimming method",
-      #   choices = c("mad", "quantile", "fixed"),
-      #   selected = "mad"
-      # ),
+      selectInput(
+        "trim_method",
+        "Between-group trimming method",
+        choices = c("fixed", "local_fixed", "none"),
+        selected = "fixed"
+      ),
+      
+      helpText(
+        "'fixed' removes between-group differences with abs(D_between) >= d. ",
+        "'local_fixed' uses an A-bin-specific threshold estimated from within-group differences. ",
+        "'none' uses between-group differences without trimming."
+      ),
       
       numericInput(
         "d",
-        "Fixed outlier trimming threshold",
+        "Fixed trimming threshold d",
         value = 1.2,
         min = 0.01
+      ),
+      
+      conditionalPanel(
+        condition = "input.trim_method == 'local_fixed'",
+        numericInput(
+          "local_k",
+          "Local threshold multiplier",
+          value = 3,
+          min = 0.1
+        ),
+        numericInput(
+          "min_local_bin_size",
+          "Minimum within-bin size for local threshold",
+          value = 10,
+          min = 2
+        )
       ),
       
       checkboxInput(
@@ -92,9 +114,8 @@ ui <- fluidPage(
       
       helpText(
         "If checked, between-group differences are also used for variance trend estimation. ",
-        "Fixed outlier trimming is applied only to between-group-derived differences. ",
-        "This can be useful when replicate information is limited, but may inflate variance ",
-        "when many genes are truly differentially expressed."
+        "Outlier trimming is applied only to between-group-derived raw log2 differences. ",
+        "Within-group differences are retained for variance trend estimation."
       ),
       
       selectInput(
@@ -149,6 +170,12 @@ ui <- fluidPage(
         tabPanel(
           "Results",
           DTOutput("results_table")
+        ),
+        
+        tabPanel(
+          "Trimming info",
+          verbatimTextOutput("trim_info"),
+          DTOutput("trim_table")
         ),
         
         tabPanel(
@@ -263,7 +290,10 @@ sample4,Treatment"
       object = prep,
       n.bin = input$n_bin,
       df = input$df,
+      trim.method = input$trim_method,
       d = input$d,
+      local.k = input$local_k,
+      min.local.bin.size = input$min_local_bin_size,
       use_weighted_between = input$use_weighted_between,
       verbose = FALSE,
       p.method = input$p_method
@@ -272,15 +302,43 @@ sample4,Treatment"
     res
   })
   
-  output$results_table <- renderDT({
+  output$trim_info <- renderPrint({
     req(analysis_result())
     
-    datatable(
-      analysis_result(),
-      options = list(
-        scrollX = TRUE,
-        pageLength = 20
+    info <- attr(analysis_result(), "trim.info")
+    
+    if (is.null(info)) {
+      cat("No trimming information available.\n")
+      return()
+    }
+    
+    cat("Trimming method:", info$method, "\n")
+    cat("Fixed threshold d:", info$d, "\n")
+    cat("Local k:", info$local.k, "\n")
+    cat("Minimum local bin size:", info$min.local.bin.size, "\n")
+    cat("Between values before trimming:", info$n_between_before, "\n")
+    cat("Between values after trimming:", info$n_between_after, "\n")
+    cat("Between values removed:", info$n_between_removed, "\n")
+  })
+  
+  output$trim_table <- renderDT({
+    req(analysis_result())
+    
+    info <- attr(analysis_result(), "trim.info")
+    
+    if (is.null(info) ||
+        is.null(info$threshold.table) ||
+        nrow(info$threshold.table) == 0) {
+      return(
+        DT::datatable(
+          data.frame(Message = "No threshold table available.")
+        )
       )
+    }
+    
+    DT::datatable(
+      info$threshold.table,
+      options = list(scrollX = TRUE, pageLength = 10)
     )
   })
   
@@ -302,6 +360,10 @@ sample4,Treatment"
     cat("\n")
     cat("Counts columns must match metadata row names.\n")
     cat("use_weighted_between: ", input$use_weighted_between, "\n")
+    cat("trimming method: ", input$trim_method, "\n")
+    cat("fixed threshold d: ", input$d, "\n")
+    cat("local.k: ", input$local_k, "\n")
+    cat("min.local.bin.size: ", input$min_local_bin_size, "\n")
   })
 }
 

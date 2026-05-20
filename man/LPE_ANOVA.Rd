@@ -8,8 +8,10 @@ LPE_ANOVA(
   object,
   n.bin = 100,
   df = 10,
-  trim.method = c("mad", "quantile", "fixed"),
+  trim.method = c("fixed", "local_fixed", "none"),
   d = 1.2,
+  local.k = 3,
+  min.local.bin.size = 10,
   use_weighted_between = FALSE,
   verbose = TRUE,
   p.method = c("chisq", "F_inf")
@@ -22,11 +24,19 @@ LPE_ANOVA(
 
 \item{df}{Degrees of freedom for smoothing spline.}
 
-\item{trim.method}{Outlier trimming method. One of \code{"mad"}, \code{"quantile"}, or \code{"fixed"}.}
+\item{trim.method}{Outlier trimming method applied only to between-group
+differences. One of \code{"fixed"}, \code{"local_fixed"}, or \code{"none"}.}
 
-\item{d}{Fixed trimming threshold used when \code{trim.method = "fixed"}.}
+\item{d}{Fixed trimming threshold on the raw log2-scale between-group difference.}
 
-\item{use_weighted_between}{Logical. Whether to include weighted between-group differences in variance trend estimation.}
+\item{local.k}{Multiplier for the local MAD-based threshold used when
+\code{trim.method = "local_fixed"}.}
+
+\item{min.local.bin.size}{Minimum number of within-group differences required
+in an A-bin to estimate a local threshold.}
+
+\item{use_weighted_between}{Logical. Whether to include weighted between-group
+differences in variance trend estimation.}
 
 \item{verbose}{Logical. Whether to print progress messages.}
 
@@ -34,6 +44,7 @@ LPE_ANOVA(
 }
 \value{
 A data.frame containing gene-level LPE-ANOVA statistics.
+Trimming information is stored in \code{attr(result, "trim.info")}.
 }
 \description{
 Performs multi-group differential expression analysis using an
