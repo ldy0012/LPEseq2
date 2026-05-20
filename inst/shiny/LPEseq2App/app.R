@@ -36,6 +36,29 @@ ui <- fluidPage(
         selected = "library_size"
       ),
       
+      selectInput(
+        "analysis_method",
+        "Analysis method",
+        choices = c(
+          "LPE-ANOVA" = "LPE",
+          "Standard one-way ANOVA" = "standard_anova",
+          "Auto by group sample size" = "auto"
+        ),
+        selected = "auto"
+      ),
+      
+      numericInput(
+        "standard_min_group_n",
+        "Minimum group size for standard ANOVA in auto mode",
+        value = 5,
+        min = 2
+      ),
+      
+      helpText(
+        "In auto mode, standard one-way ANOVA is used when every group has at least this number of samples. ",
+        "Otherwise, LPE-ANOVA is used."
+      ),
+      
       checkboxInput(
         "log_transform",
         "Log2 transform",
@@ -56,31 +79,70 @@ ui <- fluidPage(
         min = 0
       ),
       
-      numericInput(
-        "n_bin",
-        "Number of bins",
-        value = 100,
-        min = 5
-      ),
-      
-      numericInput(
-        "df",
-        "Spline degrees of freedom",
-        value = 10,
-        min = 2
-      ),
-      
-      selectInput(
-        "trim_method",
-        "Between-group trimming method",
-        choices = c("fixed", "local_fixed", "none"),
-        selected = "fixed"
-      ),
-      
-      helpText(
-        "'fixed' removes between-group differences with abs(D_between) >= d. ",
-        "'local_fixed' uses an A-bin-specific threshold estimated from within-group differences. ",
-        "'none' uses between-group differences without trimming."
+      conditionalPanel(
+        condition = "input.analysis_method != 'standard_anova'",
+        
+        numericInput(
+          "n_bin",
+          "Number of bins",
+          value = 100,
+          min = 5
+        ),
+        
+        numericInput(
+          "df",
+          "Spline degrees of freedom",
+          value = 10,
+          min = 2
+        ),
+        
+        selectInput(
+          "trim_method",
+          "Between-group trimming method",
+          choices = c("fixed", "local_fixed", "none"),
+          selected = "fixed"
+        ),
+        
+        helpText(
+          "'fixed' removes between-group differences with abs(D_between) >= d. ",
+          "'local_fixed' uses an A-bin-specific threshold estimated from within-group differences. ",
+          "'none' uses between-group differences without trimming."
+        ),
+        
+        numericInput(
+          "d",
+          "Fixed trimming threshold d",
+          value = 1.2,
+          min = 0.01
+        ),
+        
+        conditionalPanel(
+          condition = "input.trim_method == 'local_fixed'",
+          numericInput(
+            "local_k",
+            "Local threshold multiplier",
+            value = 3,
+            min = 0.1
+          ),
+          numericInput(
+            "min_local_bin_size",
+            "Minimum within-bin size for local threshold",
+            value = 10,
+            min = 2
+          )
+        ),
+        
+        checkboxInput(
+          "use_weighted_between",
+          "Use weighted between-group differences",
+          value = FALSE
+        ),
+        
+        helpText(
+          "If checked, between-group differences are also used for variance trend estimation. ",
+          "Outlier trimming is applied only to between-group-derived raw log2 differences. ",
+          "Within-group differences are retained for variance trend estimation."
+        )
       ),
       
       numericInput(
@@ -170,6 +232,11 @@ ui <- fluidPage(
         tabPanel(
           "Results",
           DTOutput("results_table")
+        ),
+        
+        tabPanel(
+          "Method info",
+          verbatimTextOutput("method_info")
         ),
         
         tabPanel(
@@ -295,6 +362,8 @@ sample4,Treatment"
       local.k = input$local_k,
       min.local.bin.size = input$min_local_bin_size,
       use_weighted_between = input$use_weighted_between,
+      analysis.method = input$analysis_method,
+      standard.min.group.n = input$standard_min_group_n,
       verbose = FALSE,
       p.method = input$p_method
     )
@@ -314,6 +383,40 @@ sample4,Treatment"
     )
   })
   
+  output$method_info <- renderPrint({
+    req(analysis_result())
+    
+    method <- attr(analysis_result(), "analysis.method")
+    requested_method <- attr(analysis_result(), "requested.analysis.method")
+    standard_min_group_n <- attr(analysis_result(), "standard.min.group.n")
+    
+    if (is.null(method)) {
+      if ("method" %in% colnames(analysis_result())) {
+        method <- unique(analysis_result()$method)
+      } else {
+        method <- "unknown"
+      }
+    }
+    
+    if (is.null(requested_method)) {
+      requested_method <- input$analysis_method
+    }
+    
+    if (is.null(standard_min_group_n)) {
+      standard_min_group_n <- input$standard_min_group_n
+    }
+    
+    cat("Requested analysis method:", requested_method, "\n")
+    cat("Actually selected analysis method:", method, "\n")
+    cat("Minimum group size for standard ANOVA in auto mode:", standard_min_group_n, "\n")
+    
+    if (input$analysis_method == "auto") {
+      cat("\nAuto mode rule:\n")
+      cat("- If every group has at least standard.min.group.n samples: standard one-way ANOVA\n")
+      cat("- Otherwise: LPE-ANOVA\n")
+    }
+  })
+  
   output$trim_info <- renderPrint({
     req(analysis_result())
     
@@ -321,6 +424,7 @@ sample4,Treatment"
     
     if (is.null(info)) {
       cat("No trimming information available.\n")
+      cat("This is expected when standard one-way ANOVA is selected.\n")
       return()
     }
     
@@ -371,6 +475,8 @@ sample4,Treatment"
     cat("4. Click Run LPE-ANOVA.\n")
     cat("\n")
     cat("Counts columns must match metadata row names.\n")
+    cat("analysis method: ", input$analysis_method, "\n")
+    cat("standard.min.group.n: ", input$standard_min_group_n, "\n")
     cat("use_weighted_between: ", input$use_weighted_between, "\n")
     cat("trimming method: ", input$trim_method, "\n")
     cat("fixed threshold d: ", input$d, "\n")

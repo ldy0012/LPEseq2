@@ -15,11 +15,21 @@
 #'   in an A-bin to estimate a local threshold.
 #' @param use_weighted_between Logical. Whether to include weighted between-group
 #'   differences in variance trend estimation.
+#' @param analysis.method Analysis method. One of \code{"LPE"},
+#'   \code{"standard_anova"}, or \code{"auto"}. \code{"LPE"} uses the
+#'   local pooled error-based ANOVA. \code{"standard_anova"} uses conventional
+#'   gene-wise one-way ANOVA. \code{"auto"} selects standard ANOVA when all
+#'   groups have at least \code{standard.min.group.n} samples; otherwise,
+#'   LPE-ANOVA is used.
+#' @param standard.min.group.n Minimum per-group sample size required to use
+#'   standard one-way ANOVA when \code{analysis.method = "auto"}.
 #' @param verbose Logical. Whether to print progress messages.
 #' @param p.method P-value calculation method. One of \code{"chisq"} or \code{"F_inf"}.
 #'
-#' @return A data.frame containing gene-level LPE-ANOVA statistics.
-#'   Trimming information is stored in \code{attr(result, "trim.info")}.
+#' @return A data.frame containing gene-level test statistics. For
+#'   \code{analysis.method = "LPE"}, trimming information is stored in
+#'   \code{attr(result, "trim.info")}. The selected analysis method is stored
+#'   in \code{attr(result, "analysis.method")}.
 #'
 #' @export
 LPE_ANOVA <- function(object,
@@ -30,10 +40,13 @@ LPE_ANOVA <- function(object,
                       local.k = 3,
                       min.local.bin.size = 10,
                       use_weighted_between = FALSE,
+                      analysis.method = c("LPE", "standard_anova", "auto"),
+                      standard.min.group.n = 5,
                       verbose = TRUE,
                       p.method = c("chisq", "F_inf")) {
 
   trim.method <- match.arg(trim.method)
+  analysis.method <- match.arg(analysis.method)
   p.method <- match.arg(p.method)
 
   # -----------------------------
@@ -75,6 +88,12 @@ LPE_ANOVA <- function(object,
     stop("use_weighted_between must be TRUE or FALSE")
   }
 
+  if (!is.numeric(standard.min.group.n) ||
+      length(standard.min.group.n) != 1 ||
+      standard.min.group.n < 2) {
+    stop("standard.min.group.n must be a single numeric value >= 2")
+  }
+
   k <- nlevels(group)
   n_i <- table(group)
 
@@ -82,9 +101,42 @@ LPE_ANOVA <- function(object,
     stop("At least two groups are required")
   }
 
+  selected.method <- analysis.method
+
+  if (analysis.method == "auto") {
+    if (min(n_i) >= standard.min.group.n) {
+      selected.method <- "standard_anova"
+    } else {
+      selected.method <- "LPE"
+    }
+  }
+
+  if (verbose) {
+    cat("Selected analysis method:", selected.method, "\n")
+    print(n_i)
+  }
+
+  if (selected.method == "standard_anova") {
+    if (verbose) {
+      cat("Running standard one-way ANOVA\n")
+    }
+
+    res <- standard_ANOVA_expr(
+      expr = expr,
+      group = group,
+      p.adjust.method = "BH"
+    )
+
+    attr(res, "analysis.method") <- "standard_anova"
+    attr(res, "requested.analysis.method") <- analysis.method
+    attr(res, "standard.min.group.n") <- standard.min.group.n
+    attr(res, "trim.info") <- NULL
+
+    return(res)
+  }
+
   if (verbose) {
     cat("Running LPE-ANOVA\n")
-    print(n_i)
   }
 
   # -----------------------------
@@ -182,9 +234,13 @@ LPE_ANOVA <- function(object,
     F = Fstat,
     p.value = p.val,
     q.value = adj.p,
+    method = "LPE",
     row.names = NULL
   )
 
+  attr(res, "analysis.method") <- "LPE"
+  attr(res, "requested.analysis.method") <- analysis.method
+  attr(res, "standard.min.group.n") <- standard.min.group.n
   attr(res, "trim.info") <- trim.info
 
   return(res)

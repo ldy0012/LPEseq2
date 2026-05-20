@@ -13,6 +13,8 @@ LPE_ANOVA(
   local.k = 3,
   min.local.bin.size = 10,
   use_weighted_between = FALSE,
+  analysis.method = c("LPE", "standard_anova", "auto"),
+  standard.min.group.n = 5,
   verbose = TRUE,
   p.method = c("chisq", "F_inf")
 )
@@ -38,13 +40,25 @@ in an A-bin to estimate a local threshold.}
 \item{use_weighted_between}{Logical. Whether to include weighted between-group
 differences in variance trend estimation.}
 
+\item{analysis.method}{Analysis method. One of \code{"LPE"},
+\code{"standard_anova"}, or \code{"auto"}. \code{"LPE"} uses the
+local pooled error-based ANOVA. \code{"standard_anova"} uses conventional
+gene-wise one-way ANOVA. \code{"auto"} selects standard ANOVA when all
+groups have at least \code{standard.min.group.n} samples; otherwise,
+LPE-ANOVA is used.}
+
+\item{standard.min.group.n}{Minimum per-group sample size required to use
+standard one-way ANOVA when \code{analysis.method = "auto"}.}
+
 \item{verbose}{Logical. Whether to print progress messages.}
 
 \item{p.method}{P-value calculation method. One of \code{"chisq"} or \code{"F_inf"}.}
 }
 \value{
-A data.frame containing gene-level LPE-ANOVA statistics.
-Trimming information is stored in \code{attr(result, "trim.info")}.
+A data.frame containing gene-level test statistics. For
+\code{analysis.method = "LPE"}, trimming information is stored in
+\code{attr(result, "trim.info")}. The selected analysis method is stored
+in \code{attr(result, "analysis.method")}.
 }
 \description{
 Performs multi-group differential expression analysis using an
