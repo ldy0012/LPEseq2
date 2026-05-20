@@ -46,17 +46,21 @@ ui <- fluidPage(
         ),
         selected = "auto"
       ),
-      
-      numericInput(
-        "standard_min_group_n",
-        "Minimum group size for standard ANOVA in auto mode",
-        value = 5,
-        min = 2
-      ),
-      
-      helpText(
-        "In auto mode, standard one-way ANOVA is used when every group has at least this number of samples. ",
-        "Otherwise, LPE-ANOVA is used."
+        
+      conditionalPanel(
+        condition = "input.analysis_method == 'auto'",
+        
+        numericInput(
+          "standard_min_group_n",
+          "Minimum group size for standard ANOVA in auto mode",
+          value = 5,
+          min = 2
+        ),
+        
+        helpText(
+          "In auto mode, standard one-way ANOVA is used when every group has at least this number of samples. ",
+          "Otherwise, LPE-ANOVA is used."
+        )
       ),
       
       checkboxInput(
@@ -106,6 +110,7 @@ ui <- fluidPage(
         helpText(
           "'fixed' removes between-group differences with abs(D_between) >= d. ",
           "'local_fixed' uses an A-bin-specific threshold estimated from within-group differences. ",
+          "Note: trimming is applied only when between-group differences are used. ",
           "'none' uses between-group differences without trimming."
         ),
         
@@ -142,56 +147,21 @@ ui <- fluidPage(
           "If checked, between-group differences are also used for variance trend estimation. ",
           "Outlier trimming is applied only to between-group-derived raw log2 differences. ",
           "Within-group differences are retained for variance trend estimation."
-        )
-      ),
-      
-      numericInput(
-        "d",
-        "Fixed trimming threshold d",
-        value = 1.2,
-        min = 0.01
-      ),
-      
-      conditionalPanel(
-        condition = "input.trim_method == 'local_fixed'",
-        numericInput(
-          "local_k",
-          "Local threshold multiplier",
-          value = 3,
-          min = 0.1
         ),
-        numericInput(
-          "min_local_bin_size",
-          "Minimum within-bin size for local threshold",
-          value = 10,
-          min = 2
+        
+        selectInput(
+          "p_method",
+          "LPE p-value method",
+          choices = c("chisq", "F_inf"),
+          selected = "chisq"
         )
       ),
-      
-      checkboxInput(
-        "use_weighted_between",
-        "Use weighted between-group differences",
-        value = FALSE
-      ),
-      
-      helpText(
-        "If checked, between-group differences are also used for variance trend estimation. ",
-        "Outlier trimming is applied only to between-group-derived raw log2 differences. ",
-        "Within-group differences are retained for variance trend estimation."
-      ),
-      
-      selectInput(
-        "p_method",
-        "P-value method",
-        choices = c("chisq", "F_inf"),
-        selected = "chisq"
-      ),
-      
+
       tags$hr(),
       
       actionButton(
         "run",
-        "Run LPE-ANOVA",
+        "Run Analysis",
         class = "btn-primary"
       ),
       
@@ -281,8 +251,12 @@ sample4,Treatment"
     )
     
     counts <- as.matrix(counts)
-    
     storage.mode(counts) <- "numeric"
+    
+    validate(
+      need(all(is.finite(counts)), "Counts file contains non-numeric, NA, NaN, or Inf values."),
+      need(all(counts >= 0), "Counts file contains negative values.")
+    )
     
     counts
   })
@@ -339,6 +313,8 @@ sample4,Treatment"
       ),
       need(input$group_var %in% colnames(meta), "Selected group variable is not in metadata.")
     )
+    
+    meta <- meta[colnames(counts), , drop = FALSE]
     
     design_formula <- as.formula(paste("~", input$group_var))
     
@@ -423,8 +399,16 @@ sample4,Treatment"
     info <- attr(analysis_result(), "trim.info")
     
     if (is.null(info)) {
+      method <- attr(analysis_result(), "analysis.method")
+      
       cat("No trimming information available.\n")
-      cat("This is expected when standard one-way ANOVA is selected.\n")
+      
+      if (!is.null(method) && method == "standard_anova") {
+        cat("This is expected because standard one-way ANOVA does not use LPE variance-trend trimming.\n")
+      } else {
+        cat("This may occur when no between-group-derived trimming information was produced.\n")
+      }
+      
       return()
     }
     
@@ -472,16 +456,22 @@ sample4,Treatment"
     cat("1. Upload counts CSV.\n")
     cat("2. Upload metadata CSV.\n")
     cat("3. Select group variable.\n")
-    cat("4. Click Run LPE-ANOVA.\n")
+    cat("4. Click Run Analysis.\n")
     cat("\n")
     cat("Counts columns must match metadata row names.\n")
     cat("analysis method: ", input$analysis_method, "\n")
-    cat("standard.min.group.n: ", input$standard_min_group_n, "\n")
-    cat("use_weighted_between: ", input$use_weighted_between, "\n")
-    cat("trimming method: ", input$trim_method, "\n")
-    cat("fixed threshold d: ", input$d, "\n")
-    cat("local.k: ", input$local_k, "\n")
-    cat("min.local.bin.size: ", input$min_local_bin_size, "\n")
+    
+    if (input$analysis_method == "auto") {
+      cat("standard.min.group.n: ", input$standard_min_group_n, "\n")
+    }
+    
+    if (input$analysis_method != "standard_anova") {
+      cat("use_weighted_between: ", input$use_weighted_between, "\n")
+      cat("trimming method: ", input$trim_method, "\n")
+      cat("fixed threshold d: ", input$d, "\n")
+      cat("local.k: ", input$local_k, "\n")
+      cat("min.local.bin.size: ", input$min_local_bin_size, "\n")
+    }
   })
 }
 
