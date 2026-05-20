@@ -15,6 +15,8 @@ LPE_ANOVA(
   local.k = 3,
   min.local.bin.size = 10,
   use_weighted_between = FALSE,
+  analysis.method = c("LPE", "standard_anova", "auto"),
+  standard.min.group.n = 5,
   verbose = TRUE,
   p.method = c("chisq", "F_inf")
 )
@@ -60,6 +62,19 @@ LPE_ANOVA(
   Logical. Whether to include weighted between-group differences in
   variance trend estimation.
 
+- analysis.method:
+
+  Analysis method. One of `"LPE"`, `"standard_anova"`, or `"auto"`.
+  `"LPE"` uses the local pooled error-based ANOVA. `"standard_anova"`
+  uses conventional gene-wise one-way ANOVA. `"auto"` selects standard
+  ANOVA when all groups have at least `standard.min.group.n` samples;
+  otherwise, LPE-ANOVA is used.
+
+- standard.min.group.n:
+
+  Minimum per-group sample size required to use standard one-way ANOVA
+  when `analysis.method = "auto"`.
+
 - verbose:
 
   Logical. Whether to print progress messages.
@@ -70,5 +85,7 @@ LPE_ANOVA(
 
 ## Value
 
-A data.frame containing gene-level LPE-ANOVA statistics. Trimming
-information is stored in `attr(result, "trim.info")`.
+A data.frame containing gene-level test statistics. For
+`analysis.method = "LPE"`, trimming information is stored in
+`attr(result, "trim.info")`. The selected analysis method is stored in
+`attr(result, "analysis.method")`.
