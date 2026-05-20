@@ -51,7 +51,7 @@ ui <- fluidPage(
       
       numericInput(
         "prior_count",
-        "Prior count",
+        "Pseudo count",
         value = 1,
         min = 0
       ),
@@ -300,6 +300,18 @@ sample4,Treatment"
     )
     
     res
+  })
+  
+  output$results_table <- renderDT({
+    req(analysis_result())
+    
+    datatable(
+      analysis_result(),
+      options = list(
+        scrollX = TRUE,
+        pageLength = 20
+      )
+    )
   })
   
   output$trim_info <- renderPrint({
