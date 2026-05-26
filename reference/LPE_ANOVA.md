@@ -10,10 +10,9 @@ LPE_ANOVA(
   object,
   n.bin = 100,
   df = 10,
-  trim.method = c("fixed", "local_fixed", "none"),
-  d = 1.2,
-  local.k = 3,
-  min.local.bin.size = 10,
+  trim.method = c("iqr", "none"),
+  trend.method = c("mean_spline", "quantile_regression"),
+  tau = 0.75,
   use_weighted_between = FALSE,
   analysis.method = c("LPE", "standard_anova", "auto"),
   standard.min.group.n = 5,
@@ -39,23 +38,23 @@ LPE_ANOVA(
 
 - trim.method:
 
-  Outlier trimming method applied only to between-group differences. One
-  of `"fixed"`, `"local_fixed"`, or `"none"`.
+  Outlier trimming method applied to pairwise values used for variance
+  trend estimation. One of `"iqr"` or `"none"`. `"iqr"` applies the
+  conventional 1.5\*IQR boxplot rule within expression-intensity A-bins
+  after pooling within-group and between-group values. `"none"` performs
+  no outlier trimming.
 
-- d:
+- trend.method:
 
-  Fixed trimming threshold on the raw log2-scale between-group
-  difference.
+  Method used to fit the variance trend. One of `"mean_spline"` or
+  `"quantile_regression"`. `"mean_spline"` fits a smoothing spline to
+  bin-level variance estimates. `"quantile_regression"` fits an
+  upper-quantile regression trend to reduce potential variance
+  underestimation.
 
-- local.k:
+- tau:
 
-  Multiplier for the local MAD-based threshold used when
-  `trim.method = "local_fixed"`.
-
-- min.local.bin.size:
-
-  Minimum number of within-group differences required in an A-bin to
-  estimate a local threshold.
+  Quantile level used when
 
 - use_weighted_between:
 
@@ -85,7 +84,8 @@ LPE_ANOVA(
 
 ## Value
 
-A data.frame containing gene-level test statistics. For
-`analysis.method = "LPE"`, trimming information is stored in
-`attr(result, "trim.info")`. The selected analysis method is stored in
-`attr(result, "analysis.method")`.
+A data.frame containing gene-level test statistics. The selected
+analysis method is stored in `attr(result, "analysis.method")`. For
+LPE-ANOVA, trimming information, variance trend information, and
+bin-level variance points are stored in `attr(result, "trim.info")`,
+`attr(result, "trend.info")`, and `attr(result, "base.var")`.

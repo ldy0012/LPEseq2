@@ -2,7 +2,10 @@
 
 This function estimates an intensity-dependent variance trend using
 within-group pairwise differences. Optionally, weighted between-group
-differences can be included when replicate information is limited.
+differences can be included when replicate information is limited. When
+trimming is enabled, the conventional 1.5\*IQR rule is applied within
+expression-intensity bins to pairwise values used for variance trend
+estimation.
 
 ## Usage
 
@@ -12,10 +15,9 @@ LPE_ANOVA_var(
   group,
   n.bin = 100,
   df = 10,
-  trim.method = c("fixed", "local_fixed", "none"),
-  d = 1.2,
-  local.k = 3,
-  min.local.bin.size = 10,
+  trim.method = c("iqr", "none"),
+  trend.method = c("mean_spline", "quantile_regression"),
+  tau = 0.75,
   use_weighted_between = FALSE
 )
 ```
@@ -40,29 +42,21 @@ LPE_ANOVA_var(
 
 - trim.method:
 
-  Outlier trimming method applied only to between-group differences. One
-  of `"fixed"`, `"local_fixed"`, or `"none"`. `"fixed"` excludes
-  between-group differences with `|D_between| >= d`. `"local_fixed"`
-  uses an A-bin-specific threshold estimated from within-group
-  differences.
+  Outlier trimming method applied to pairwise values used for variance
+  trend estimation. One of `"iqr"` or `"none"`. `"iqr"` applies the
+  conventional 1.5\*IQR boxplot rule within expression-intensity A-bins
+  after pooling within-group and between-group values. `"none"` performs
+  no outlier trimming.
 
-- d:
+- trend.method:
 
-  Fixed trimming threshold on the raw log2-scale difference. This
-  threshold is applied to `D_between`, not to the variance-scaled
-  `M_between`.
+  Method used to fit the variance trend. One of `"mean_spline"` or
+  `"quantile_regression"`.
 
-- local.k:
+- tau:
 
-  Multiplier for the local MAD-based threshold used when
-  `trim.method = "local_fixed"`. The local threshold is computed as
-  `max(d, local.k * MAD(D_within_bin))`.
-
-- min.local.bin.size:
-
-  Minimum number of within-group differences required in an A-bin to
-  estimate a local threshold. If insufficient, the method falls back to
-  the fixed threshold `d`.
+  Quantile level used when `trend.method = "quantile_regression"`.
+  Default is `0.75`.
 
 - use_weighted_between:
 
@@ -72,4 +66,6 @@ LPE_ANOVA_var(
 ## Value
 
 A `smooth.spline` object representing the estimated variance trend.
-Trimming information is stored in `attr(object, "trim.info")`.
+Trimming information is stored in `attr(object, "trim.info")`, trend
+information is stored in `attr(object, "trend.info")`, and bin-level
+variance points are stored in `attr(object, "base.var")`.
