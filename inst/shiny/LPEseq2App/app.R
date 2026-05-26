@@ -102,39 +102,18 @@ ui <- fluidPage(
         
         selectInput(
           "trim_method",
-          "Between-group trimming method",
-          choices = c("fixed", "local_fixed", "none"),
-          selected = "fixed"
+          "Between-group outlier trimming method",
+          choices = c(
+            "IQR / boxplot rule" = "iqr",
+            "None" = "none"
+          ),
+          selected = "iqr"
         ),
         
         helpText(
-          "'fixed' removes between-group differences with abs(D_between) >= d. ",
-          "'local_fixed' uses an A-bin-specific threshold estimated from within-group differences. ",
-          "Note: trimming is applied only when between-group differences are used. ",
-          "'none' uses between-group differences without trimming."
-        ),
-        
-        numericInput(
-          "d",
-          "Fixed trimming threshold d",
-          value = 1.2,
-          min = 0.01
-        ),
-        
-        conditionalPanel(
-          condition = "input.trim_method == 'local_fixed'",
-          numericInput(
-            "local_k",
-            "Local threshold multiplier",
-            value = 3,
-            min = 0.1
-          ),
-          numericInput(
-            "min_local_bin_size",
-            "Minimum within-bin size for local threshold",
-            value = 10,
-            min = 2
-          )
+          "The IQR method removes boxplot-style outliers from raw between-group log2 differences. ",
+          "No user-defined threshold or k value is required. ",
+          "Trimming is applied only when between-group differences are used."
         ),
         
         checkboxInput(
@@ -334,9 +313,6 @@ sample4,Treatment"
       n.bin = input$n_bin,
       df = input$df,
       trim.method = input$trim_method,
-      d = input$d,
-      local.k = input$local_k,
-      min.local.bin.size = input$min_local_bin_size,
       use_weighted_between = input$use_weighted_between,
       analysis.method = input$analysis_method,
       standard.min.group.n = input$standard_min_group_n,
@@ -412,10 +388,7 @@ sample4,Treatment"
       return()
     }
     
-    cat("Trimming method:", info$method, "\n")
-    cat("Fixed threshold d:", info$d, "\n")
-    cat("Local k:", info$local.k, "\n")
-    cat("Minimum local bin size:", info$min.local.bin.size, "\n")
+    cat("outlier trimming method: ", input$trim_method, "\n")
     cat("Between values before trimming:", info$n_between_before, "\n")
     cat("Between values after trimming:", info$n_between_after, "\n")
     cat("Between values removed:", info$n_between_removed, "\n")
@@ -468,9 +441,11 @@ sample4,Treatment"
     if (input$analysis_method != "standard_anova") {
       cat("use_weighted_between: ", input$use_weighted_between, "\n")
       cat("trimming method: ", input$trim_method, "\n")
-      cat("fixed threshold d: ", input$d, "\n")
-      cat("local.k: ", input$local_k, "\n")
-      cat("min.local.bin.size: ", input$min_local_bin_size, "\n")
+      cat("Trimming method:", info$method, "\n")
+      cat("Trimming rule:", info$rule, "\n")
+      cat("Between values before trimming:", info$n_between_before, "\n")
+      cat("Between values after trimming:", info$n_between_after, "\n")
+      cat("Between values removed:", info$n_between_removed, "\n")
     }
   })
 }

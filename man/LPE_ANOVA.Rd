@@ -8,10 +8,9 @@ LPE_ANOVA(
   object,
   n.bin = 100,
   df = 10,
-  trim.method = c("fixed", "local_fixed", "none"),
-  d = 1.2,
-  local.k = 3,
-  min.local.bin.size = 10,
+  trim.method = c("iqr", "none"),
+  trend.method = c("mean_spline", "quantile_regression"),
+  tau = 0.75,
   use_weighted_between = FALSE,
   analysis.method = c("LPE", "standard_anova", "auto"),
   standard.min.group.n = 5,
@@ -26,16 +25,19 @@ LPE_ANOVA(
 
 \item{df}{Degrees of freedom for smoothing spline.}
 
-\item{trim.method}{Outlier trimming method applied only to between-group
-differences. One of \code{"fixed"}, \code{"local_fixed"}, or \code{"none"}.}
+\item{trim.method}{Outlier trimming method applied to pairwise values
+used for variance trend estimation. One of \code{"iqr"} or \code{"none"}.
+\code{"iqr"} applies the conventional 1.5*IQR boxplot rule within
+expression-intensity A-bins after pooling within-group and between-group
+values. \code{"none"} performs no outlier trimming.}
 
-\item{d}{Fixed trimming threshold on the raw log2-scale between-group difference.}
+\item{trend.method}{Method used to fit the variance trend. One of
+\code{"mean_spline"} or \code{"quantile_regression"}.
+\code{"mean_spline"} fits a smoothing spline to bin-level variance
+estimates. \code{"quantile_regression"} fits an upper-quantile
+regression trend to reduce potential variance underestimation.}
 
-\item{local.k}{Multiplier for the local MAD-based threshold used when
-\code{trim.method = "local_fixed"}.}
-
-\item{min.local.bin.size}{Minimum number of within-group differences required
-in an A-bin to estimate a local threshold.}
+\item{tau}{Quantile level used when}
 
 \item{use_weighted_between}{Logical. Whether to include weighted between-group
 differences in variance trend estimation.}
@@ -55,10 +57,11 @@ standard one-way ANOVA when \code{analysis.method = "auto"}.}
 \item{p.method}{P-value calculation method. One of \code{"chisq"} or \code{"F_inf"}.}
 }
 \value{
-A data.frame containing gene-level test statistics. For
-\code{analysis.method = "LPE"}, trimming information is stored in
-\code{attr(result, "trim.info")}. The selected analysis method is stored
-in \code{attr(result, "analysis.method")}.
+A data.frame containing gene-level test statistics. The selected
+analysis method is stored in \code{attr(result, "analysis.method")}.
+For LPE-ANOVA, trimming information, variance trend information, and
+bin-level variance points are stored in \code{attr(result, "trim.info")},
+\code{attr(result, "trend.info")}, and \code{attr(result, "base.var")}.
 }
 \description{
 Performs multi-group differential expression analysis using an

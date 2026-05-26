@@ -3,42 +3,43 @@
 #' This function estimates an intensity-dependent variance trend using
 #' within-group pairwise differences. Optionally, weighted between-group
 #' differences can be included when replicate information is limited.
+#' When trimming is enabled, the conventional 1.5*IQR rule is applied
+#' within expression-intensity bins to pairwise values used for variance
+#' trend estimation.
 #'
 #' @param expr A numeric expression matrix with genes as rows and samples as columns.
 #' @param group A factor or vector indicating sample group labels.
 #' @param n.bin Number of quantile bins used for variance trend estimation.
 #' @param df Degrees of freedom for smoothing spline.
-#' @param trim.method Outlier trimming method applied only to between-group
-#'   differences. One of \code{"fixed"}, \code{"local_fixed"}, or \code{"none"}.
-#'   \code{"fixed"} excludes between-group differences with
-#'   \code{|D_between| >= d}. \code{"local_fixed"} uses an A-bin-specific
-#'   threshold estimated from within-group differences.
-#' @param d Fixed trimming threshold on the raw log2-scale difference.
-#'   This threshold is applied to \code{D_between}, not to the variance-scaled
-#'   \code{M_between}.
-#' @param local.k Multiplier for the local MAD-based threshold used when
-#'   \code{trim.method = "local_fixed"}. The local threshold is computed as
-#'   \code{max(d, local.k * MAD(D_within_bin))}.
-#' @param min.local.bin.size Minimum number of within-group differences required
-#'   in an A-bin to estimate a local threshold. If insufficient, the method
-#'   falls back to the fixed threshold \code{d}.
+#' @param trim.method Outlier trimming method applied to pairwise values
+#'   used for variance trend estimation. One of \code{"iqr"} or \code{"none"}.
+#'   \code{"iqr"} applies the conventional 1.5*IQR boxplot rule within
+#'   expression-intensity A-bins after pooling within-group and between-group
+#'   values. \code{"none"} performs no outlier trimming.
+#' @param trend.method Method used to fit the variance trend. One of
+#'   \code{"mean_spline"} or \code{"quantile_regression"}.
+#' @param tau Quantile level used when
+#'   \code{trend.method = "quantile_regression"}. Default is \code{0.75}.
 #' @param use_weighted_between Logical. Whether to include weighted between-group
 #'   differences in variance trend estimation.
+#'
 #' @return A \code{smooth.spline} object representing the estimated variance
-#'   trend. Trimming information is stored in \code{attr(object, "trim.info")}.
+#'   trend. Trimming information is stored in \code{attr(object, "trim.info")},
+#'   trend information is stored in \code{attr(object, "trend.info")}, and
+#'   bin-level variance points are stored in \code{attr(object, "base.var")}.
 #'
 #' @export
 LPE_ANOVA_var <- function(expr,
                           group,
                           n.bin = 100,
                           df = 10,
-                          trim.method = c("fixed", "local_fixed", "none"),
-                          d = 1.2,
-                          local.k = 3,
-                          min.local.bin.size = 10,
+                          trim.method = c("iqr", "none"),
+                          trend.method = c("mean_spline", "quantile_regression"),
+                          tau = 0.75,
                           use_weighted_between = FALSE) {
 
   trim.method <- match.arg(trim.method)
+  trend.method <- match.arg(trend.method)
 
   # -----------------------------
   # 1. input check
@@ -68,22 +69,20 @@ LPE_ANOVA_var <- function(expr,
     stop("df must be a single numeric value >= 2")
   }
 
-  if (!is.numeric(d) || length(d) != 1 || d <= 0) {
-    stop("d must be a single positive numeric value")
-  }
-
-  if (!is.numeric(local.k) || length(local.k) != 1 || local.k <= 0) {
-    stop("local.k must be a single positive numeric value")
-  }
-
-  if (!is.numeric(min.local.bin.size) ||
-      length(min.local.bin.size) != 1 ||
-      min.local.bin.size < 2) {
-    stop("min.local.bin.size must be a single numeric value >= 2")
-  }
-
   if (!is.logical(use_weighted_between) || length(use_weighted_between) != 1) {
     stop("use_weighted_between must be TRUE or FALSE")
+  }
+
+  if (!is.numeric(tau) || length(tau) != 1 || tau <= 0 || tau >= 1) {
+    stop("tau must be a single numeric value between 0 and 1")
+  }
+
+  if (trend.method == "quantile_regression" &&
+      !requireNamespace("quantreg", quietly = TRUE)) {
+    stop(
+      "Package 'quantreg' is required when trend.method = 'quantile_regression'. ",
+      "Install it with install.packages('quantreg')."
+    )
   }
 
   group <- droplevels(as.factor(group))
@@ -92,16 +91,6 @@ LPE_ANOVA_var <- function(expr,
 
   if (k < 2) {
     stop("At least two groups are required")
-  }
-
-  if (trim.method == "local_fixed" &&
-      !use_weighted_between &&
-      !all(n_i == 1)) {
-    warning(
-      "trim.method = 'local_fixed' has no effect when ",
-      "use_weighted_between = FALSE, unless all groups are non-replicated. ",
-      "Variance trend estimation will rely only on within-group differences."
-    )
   }
 
   split_index <- split(seq_along(group), group)
@@ -123,7 +112,8 @@ LPE_ANOVA_var <- function(expr,
   # -----------------------------
   # 2. within-group pairwise differences
   #    These are genuine replicate-based residual differences.
-  #    Do not apply outlier trimming to these values.
+  #    If trim.method = "iqr", they will be pooled with between-derived
+  #    values and trimmed within expression-intensity A-bins later.
   # -----------------------------
 
   for (g in seq_len(nrow(expr))) {
@@ -162,17 +152,18 @@ LPE_ANOVA_var <- function(expr,
 
   # -----------------------------
   # 3. optional weighted between-group information
-  #    These values may contain true DE signal and are therefore
-  #    the only target of outlier trimming.
+  #    These values may contain true DE signal.
+  #    If trim.method = "iqr", they will be pooled with within-group
+  #    pairwise values and trimmed within expression-intensity A-bins later.
   # -----------------------------
 
   if (use_weighted_between) {
     warning(
       "Between-group differences are used for variance training. ",
-      "Outlier trimming will be applied only to raw between-group log2 differences ",
-      "using D_between, while within-group differences are retained."
+      "If trim.method = 'iqr', within-group and between-group pairwise values ",
+      "will be pooled and trimmed within expression-intensity A-bins using ",
+      "the conventional 1.5*IQR rule."
     )
-
     for (g in seq_len(nrow(expr))) {
       y <- expr[g, ]
       group_means <- sapply(split_index, function(idx) mean(y[idx]))
@@ -239,202 +230,166 @@ LPE_ANOVA_var <- function(expr,
   }
 
   # -----------------------------
-  # 5. outlier trimming
-  #    Apply trimming only to between-derived values.
-  #    Trimming is based on raw log2 differences (D_between),
-  #    not variance-scaled M_between.
-  # -----------------------------
-
-  trim.info <- list(
-    method = trim.method,
-    d = d,
-    local.k = local.k,
-    min.local.bin.size = min.local.bin.size,
-    n_between_before = length(M_between),
-    n_between_after = length(M_between),
-    n_between_removed = 0,
-    threshold.table = data.frame()
-  )
-
-  if (length(M_between) > 0) {
-
-    valid_between <- is.finite(M_between) &
-      is.finite(A_between) &
-      is.finite(W_between) &
-      is.finite(D_between) &
-      W_between > 0
-
-    M_between <- M_between[valid_between]
-    A_between <- A_between[valid_between]
-    W_between <- W_between[valid_between]
-    D_between <- D_between[valid_between]
-
-    n_between_before <- length(M_between)
-
-    keep_between <- rep(TRUE, length(M_between))
-    threshold.list <- list()
-
-    if (trim.method != "none") {
-
-      if (trim.method == "fixed") {
-
-        keep_between <- abs(D_between) < d
-
-        threshold.list[[1]] <- data.frame(
-          bin = 1,
-          A_low = min(A_between, na.rm = TRUE),
-          A_high = max(A_between, na.rm = TRUE),
-          d_local = d,
-          n_within = length(D_within),
-          n_between = length(D_between),
-          n_removed = sum(!keep_between)
-        )
-
-      } else if (trim.method == "local_fixed") {
-
-        if (length(D_within) < min.local.bin.size) {
-
-          keep_between <- abs(D_between) < d
-
-          threshold.list[[1]] <- data.frame(
-            bin = 1,
-            A_low = min(A_between, na.rm = TRUE),
-            A_high = max(A_between, na.rm = TRUE),
-            d_local = d,
-            n_within = length(D_within),
-            n_between = length(D_between),
-            n_removed = sum(!keep_between)
-          )
-
-        } else {
-
-          # A bin은 within + between의 A 분포를 함께 사용해서 만든다.
-          A_for_breaks <- c(A_within, A_between)
-
-          n.local.bin <- min(n.bin, floor(length(A_for_breaks) / min.local.bin.size))
-
-          if (n.local.bin < 5) {
-
-            keep_between <- abs(D_between) < d
-
-            threshold.list[[1]] <- data.frame(
-              bin = 1,
-              A_low = min(A_between, na.rm = TRUE),
-              A_high = max(A_between, na.rm = TRUE),
-              d_local = d,
-              n_within = length(D_within),
-              n_between = length(D_between),
-              n_removed = sum(!keep_between)
-            )
-
-          } else {
-
-            probs.local <- seq(0, 1, length.out = n.local.bin + 1)
-
-            breaks <- unique(as.numeric(stats::quantile(
-              A_for_breaks,
-              probs = probs.local,
-              na.rm = TRUE
-            )))
-
-            if (length(breaks) < 5) {
-
-              keep_between <- abs(D_between) < d
-
-              threshold.list[[1]] <- data.frame(
-                bin = 1,
-                A_low = min(A_between, na.rm = TRUE),
-                A_high = max(A_between, na.rm = TRUE),
-                d_local = d,
-                n_within = length(D_within),
-                n_between = length(D_between),
-                n_removed = sum(!keep_between)
-              )
-
-            } else {
-
-              for (i in 2:length(breaks)) {
-
-                if (i == length(breaks)) {
-                  idx_within_bin <- which(A_within >= breaks[i - 1] &
-                                            A_within <= breaks[i])
-                  idx_between_bin <- which(A_between >= breaks[i - 1] &
-                                             A_between <= breaks[i])
-                } else {
-                  idx_within_bin <- which(A_within >= breaks[i - 1] &
-                                            A_within < breaks[i])
-                  idx_between_bin <- which(A_between >= breaks[i - 1] &
-                                             A_between < breaks[i])
-                }
-
-                if (length(idx_between_bin) == 0) {
-                  next
-                }
-
-                if (length(idx_within_bin) >= min.local.bin.size) {
-
-                  D_within_bin <- D_within[idx_within_bin]
-
-                  med <- stats::median(D_within_bin, na.rm = TRUE)
-
-                  s_b <- stats::mad(
-                    D_within_bin,
-                    center = med,
-                    constant = 1.4826,
-                    na.rm = TRUE
-                  )
-
-                  if (is.finite(s_b) && s_b > 0) {
-                    d_local <- max(d, local.k * s_b)
-                  } else {
-                    d_local <- d
-                  }
-
-                } else {
-                  d_local <- d
-                }
-
-                keep_before <- keep_between[idx_between_bin]
-
-                keep_between[idx_between_bin] <- abs(D_between[idx_between_bin]) < d_local
-
-                threshold.list[[length(threshold.list) + 1]] <- data.frame(
-                  bin = i - 1,
-                  A_low = breaks[i - 1],
-                  A_high = breaks[i],
-                  d_local = d_local,
-                  n_within = length(idx_within_bin),
-                  n_between = length(idx_between_bin),
-                  n_removed = sum(keep_before & !keep_between[idx_between_bin])
-                )
-              }
-            }
-          }
-        }
-      }
-
-      M_between <- M_between[keep_between]
-      A_between <- A_between[keep_between]
-      W_between <- W_between[keep_between]
-      D_between <- D_between[keep_between]
-    }
-
-    trim.info$n_between_before <- n_between_before
-    trim.info$n_between_after <- length(M_between)
-    trim.info$n_between_removed <- n_between_before - length(M_between)
-
-    if (length(threshold.list) > 0) {
-      trim.info$threshold.table <- do.call(rbind, threshold.list)
-    }
-  }
-
-  # -----------------------------
-  # 6. combine variance-training information
+  # 5. pooled bin-wise IQR outlier trimming
+  #    Pool within- and between-derived values, then apply the conventional
+  #    1.5*IQR rule within A-bins.
+  #    IQR is calculated on M values because M is the scale used for
+  #    variance trend estimation.
   # -----------------------------
 
   M_all <- c(M_within, M_between)
   A_all <- c(A_within, A_between)
   W_all <- c(W_within, W_between)
+  D_all <- c(D_within, D_between)
+
+  source_all <- c(
+    rep("within", length(M_within)),
+    rep("between", length(M_between))
+  )
+
+  valid_all0 <- is.finite(M_all) &
+    is.finite(A_all) &
+    is.finite(W_all) &
+    is.finite(D_all) &
+    W_all > 0
+
+  M_all <- M_all[valid_all0]
+  A_all <- A_all[valid_all0]
+  W_all <- W_all[valid_all0]
+  D_all <- D_all[valid_all0]
+  source_all <- source_all[valid_all0]
+
+  n_within_before <- sum(source_all == "within")
+  n_between_before <- sum(source_all == "between")
+
+  trim.info <- list(
+    method = trim.method,
+    rule = ifelse(trim.method == "iqr", "pooled_bin_wise_boxplot_IQR_rule", "none"),
+    trim.scale = ifelse(trim.method == "iqr", "M", NA_character_),
+    n_total_before = length(M_all),
+    n_total_after = length(M_all),
+    n_total_removed = 0,
+    n_within_before = n_within_before,
+    n_within_after = n_within_before,
+    n_within_removed = 0,
+    n_between_before = n_between_before,
+    n_between_after = n_between_before,
+    n_between_removed = 0,
+    threshold.table = data.frame()
+  )
+
+  if (trim.method == "iqr" && length(M_all) > 0) {
+
+    keep_all <- rep(TRUE, length(M_all))
+    threshold.list <- list()
+
+    n.iqr.bin <- min(n.bin, floor(length(A_all) / 5))
+
+    if (n.iqr.bin < 1) {
+      n.iqr.bin <- 1
+    }
+
+    if (n.iqr.bin == 1) {
+      breaks <- c(min(A_all, na.rm = TRUE), max(A_all, na.rm = TRUE))
+    } else {
+      probs.iqr <- seq(0, 1, length.out = n.iqr.bin + 1)
+
+      breaks <- unique(as.numeric(stats::quantile(
+        A_all,
+        probs = probs.iqr,
+        na.rm = TRUE
+      )))
+    }
+
+    if (length(breaks) < 2) {
+      breaks <- c(min(A_all, na.rm = TRUE), max(A_all, na.rm = TRUE))
+    }
+
+    for (i in 2:length(breaks)) {
+
+      if (i == length(breaks)) {
+        idx_bin <- which(A_all >= breaks[i - 1] & A_all <= breaks[i])
+      } else {
+        idx_bin <- which(A_all >= breaks[i - 1] & A_all < breaks[i])
+      }
+
+      if (length(idx_bin) == 0) {
+        next
+      }
+
+      # Use M values for outlier detection because M is the value used
+      # to estimate local pooled variance.
+      X_bin <- M_all[idx_bin]
+
+      if (length(X_bin) >= 5) {
+
+        q1 <- as.numeric(stats::quantile(X_bin, 0.25, na.rm = TRUE))
+        q3 <- as.numeric(stats::quantile(X_bin, 0.75, na.rm = TRUE))
+        iqr_value <- q3 - q1
+
+        if (is.finite(iqr_value) && iqr_value > 0) {
+          lower <- q1 - 1.5 * iqr_value
+          upper <- q3 + 1.5 * iqr_value
+
+          keep_bin <- X_bin >= lower & X_bin <= upper
+        } else {
+          lower <- q1
+          upper <- q3
+          keep_bin <- rep(TRUE, length(X_bin))
+        }
+
+      } else {
+
+        q1 <- NA_real_
+        q3 <- NA_real_
+        iqr_value <- NA_real_
+        lower <- NA_real_
+        upper <- NA_real_
+        keep_bin <- rep(TRUE, length(X_bin))
+      }
+
+      keep_all[idx_bin] <- keep_bin
+
+      source_bin <- source_all[idx_bin]
+
+      threshold.list[[length(threshold.list) + 1]] <- data.frame(
+        bin = i - 1,
+        A_low = breaks[i - 1],
+        A_high = breaks[i],
+        Q1 = q1,
+        Q3 = q3,
+        IQR = iqr_value,
+        lower_bound = lower,
+        upper_bound = upper,
+        n_values = length(idx_bin),
+        n_within = sum(source_bin == "within"),
+        n_between = sum(source_bin == "between"),
+        n_removed = sum(!keep_bin),
+        n_within_removed = sum(!keep_bin & source_bin == "within"),
+        n_between_removed = sum(!keep_bin & source_bin == "between")
+      )
+    }
+
+    M_all <- M_all[keep_all]
+    A_all <- A_all[keep_all]
+    W_all <- W_all[keep_all]
+    D_all <- D_all[keep_all]
+    source_all <- source_all[keep_all]
+
+    if (length(threshold.list) > 0) {
+      trim.info$threshold.table <- do.call(rbind, threshold.list)
+    }
+
+    trim.info$n_within_after <- sum(source_all == "within")
+    trim.info$n_between_after <- sum(source_all == "between")
+
+    trim.info$n_within_removed <- trim.info$n_within_before - trim.info$n_within_after
+    trim.info$n_between_removed <- trim.info$n_between_before - trim.info$n_between_after
+  }
+
+  # -----------------------------
+  # 6. validate variance-training information
+  # -----------------------------
 
   if (length(M_all) < 10) {
     stop("Too few pairwise differences to estimate variance trend")
@@ -509,6 +464,10 @@ LPE_ANOVA_var <- function(expr,
     stop("Too few valid bins to fit variance trend")
   }
 
+  if (length(unique(base.var$A)) < 4) {
+    stop("Too few unique A values to fit variance trend")
+  }
+
   # -----------------------------
   # 8. low-expression variance floor
   # -----------------------------
@@ -524,13 +483,89 @@ LPE_ANOVA_var <- function(expr,
 
   df_use <- min(df, nrow(base.var) - 1)
 
-  sm.spline <- stats::smooth.spline(
-    x = base.var$A,
-    y = base.var$var.M,
-    df = df_use
-  )
+  if (trend.method == "mean_spline") {
+
+    sm.spline <- stats::smooth.spline(
+      x = base.var$A,
+      y = base.var$var.M,
+      df = df_use
+    )
+
+    trend.info <- list(
+      method = "mean_spline",
+      tau = NA_real_,
+      spline.df = df_use
+    )
+
+  } else if (trend.method == "quantile_regression") {
+
+    qr_df <- min(df_use, nrow(base.var) - 2)
+
+    if (qr_df < 1) {
+      qr_df <- 1
+    }
+
+    qr_data <- base.var
+    qr_data$log_var.M <- log(qr_data$var.M)
+
+    qr_fit <- try(
+      quantreg::rq(
+        log_var.M ~ splines::ns(A, df = qr_df),
+        tau = tau,
+        data = qr_data
+      ),
+      silent = TRUE
+    )
+
+    if (inherits(qr_fit, "try-error")) {
+      warning(
+        "Quantile regression failed. Falling back to mean_spline."
+      )
+
+      sm.spline <- stats::smooth.spline(
+        x = base.var$A,
+        y = base.var$var.M,
+        df = df_use
+      )
+
+      trend.info <- list(
+        method = "mean_spline_fallback",
+        tau = tau
+      )
+
+    } else {
+
+      pred_log_var <- as.numeric(stats::predict(
+        qr_fit,
+        newdata = data.frame(A = base.var$A)
+      ))
+
+      pred_var <- exp(pred_log_var)
+
+      valid_pred <- is.finite(pred_var) & pred_var > 0
+
+      if (!all(valid_pred)) {
+        pred_var[!valid_pred] <- base.var$var.M[!valid_pred]
+      }
+
+      sm.spline <- stats::smooth.spline(
+        x = base.var$A,
+        y = pred_var,
+        df = df_use
+      )
+
+      trend.info <- list(
+        method = "quantile_regression",
+        tau = tau,
+        qr.df = qr_df,
+        spline.df = df_use
+      )
+    }
+  }
 
   attr(sm.spline, "trim.info") <- trim.info
+  attr(sm.spline, "trend.info") <- trend.info
+  attr(sm.spline, "base.var") <- base.var
 
   return(sm.spline)
 }
