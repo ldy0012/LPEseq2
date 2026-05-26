@@ -54,7 +54,8 @@ LPE_ANOVA(
 
 - tau:
 
-  Quantile level used when
+  Quantile level used when `trend.method = "quantile_regression"`.
+  Default is `0.75`.
 
 - use_weighted_between:
 
