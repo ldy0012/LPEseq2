@@ -101,19 +101,41 @@ ui <- fluidPage(
         ),
         
         selectInput(
-          "trim_method",
-          "Between-group outlier trimming method",
+          "trend_method",
+          "Variance trend method",
           choices = c(
-            "IQR / boxplot rule" = "iqr",
+            "Mean smoothing spline" = "mean_spline",
+            "Upper-quantile regression" = "quantile_regression"
+          ),
+          selected = "mean_spline"
+        ),
+        
+        conditionalPanel(
+          condition = "input.trend_method == 'quantile_regression'",
+          numericInput(
+            "tau",
+            "Quantile level",
+            value = 0.75,
+            min = 0.5,
+            max = 0.99,
+            step = 0.01
+          )
+        ),
+        
+        selectInput(
+          "trim_method",
+          "Pairwise outlier trimming method",
+          choices = c(
+            "Pooled bin-wise IQR / boxplot rule" = "iqr",
             "None" = "none"
           ),
           selected = "iqr"
         ),
         
         helpText(
-          "The IQR method removes boxplot-style outliers from raw between-group log2 differences. ",
-          "No user-defined threshold or k value is required. ",
-          "Trimming is applied only when between-group differences are used."
+          "The IQR method pools within-group and between-group-derived pairwise values, ",
+          "divides them into expression-intensity A-bins, and applies the conventional 1.5 × IQR boxplot rule within each bin. ",
+          "Outlier detection is performed on the M-value scale used for variance trend estimation."
         ),
         
         checkboxInput(
@@ -123,9 +145,8 @@ ui <- fluidPage(
         ),
         
         helpText(
-          "If checked, between-group differences are also used for variance trend estimation. ",
-          "Outlier trimming is applied only to between-group-derived raw log2 differences. ",
-          "Within-group differences are retained for variance trend estimation."
+          "If checked, between-group-derived values are also included in variance trend estimation. ",
+          "When IQR trimming is selected, within-group and between-group-derived values are pooled before bin-wise IQR trimming."
         ),
         
         selectInput(
@@ -186,6 +207,12 @@ ui <- fluidPage(
         tabPanel(
           "Method info",
           verbatimTextOutput("method_info")
+        ),
+        
+        tabPanel(
+          "Variance trend info",
+          verbatimTextOutput("trend_info"),
+          DTOutput("base_var_table")
         ),
         
         tabPanel(
@@ -286,6 +313,8 @@ sample4,Treatment"
     validate(
       need(!is.null(rownames(meta)), "Metadata must have sample names as row names."),
       need(!is.null(colnames(counts)), "Counts must have sample names as column names."),
+      need(!anyDuplicated(colnames(counts)), "Counts sample names must be unique."),
+      need(!anyDuplicated(rownames(meta)), "Metadata sample names must be unique."),
       need(
         setequal(colnames(counts), rownames(meta)),
         "Sample names do not match between counts columns and metadata row names."
@@ -295,8 +324,16 @@ sample4,Treatment"
     
     meta <- meta[colnames(counts), , drop = FALSE]
     
-    design_formula <- as.formula(paste("~", input$group_var))
+    validate(
+      need(!anyNA(meta[[input$group_var]]), "Selected group variable contains NA values."),
+      need(
+        length(unique(meta[[input$group_var]])) >= 2,
+        "At least two groups are required for analysis."
+      )
+    )
     
+    design_formula <- stats::reformulate(input$group_var)
+
     prep <- LPE_preprocess(
       counts = counts,
       colData = meta,
@@ -308,16 +345,27 @@ sample4,Treatment"
       verbose = FALSE
     )
     
+    lpe_n_bin <- if (is.null(input$n_bin)) 100 else input$n_bin
+    lpe_df <- if (is.null(input$df)) 10 else input$df
+    lpe_trim_method <- if (is.null(input$trim_method)) "iqr" else input$trim_method
+    lpe_trend_method <- if (is.null(input$trend_method)) "mean_spline" else input$trend_method
+    lpe_tau <- if (is.null(input$tau)) 0.75 else input$tau
+    lpe_use_weighted_between <- if (is.null(input$use_weighted_between)) FALSE else input$use_weighted_between
+    lpe_p_method <- if (is.null(input$p_method)) "chisq" else input$p_method
+    auto_min_group_n <- if (is.null(input$standard_min_group_n)) 5 else input$standard_min_group_n
+    
     res <- LPE_ANOVA(
       object = prep,
-      n.bin = input$n_bin,
-      df = input$df,
-      trim.method = input$trim_method,
-      use_weighted_between = input$use_weighted_between,
+      n.bin = lpe_n_bin,
+      df = lpe_df,
+      trim.method = lpe_trim_method,
+      trend.method = lpe_trend_method,
+      tau = lpe_tau,
+      use_weighted_between = lpe_use_weighted_between,
       analysis.method = input$analysis_method,
-      standard.min.group.n = input$standard_min_group_n,
+      standard.min.group.n = auto_min_group_n,
       verbose = FALSE,
-      p.method = input$p_method
+      p.method = lpe_p_method
     )
     
     res
@@ -341,6 +389,7 @@ sample4,Treatment"
     method <- attr(analysis_result(), "analysis.method")
     requested_method <- attr(analysis_result(), "requested.analysis.method")
     standard_min_group_n <- attr(analysis_result(), "standard.min.group.n")
+    trend_info <- attr(analysis_result(), "trend.info")
     
     if (is.null(method)) {
       if ("method" %in% colnames(analysis_result())) {
@@ -367,6 +416,57 @@ sample4,Treatment"
       cat("- If every group has at least standard.min.group.n samples: standard one-way ANOVA\n")
       cat("- Otherwise: LPE-ANOVA\n")
     }
+    if (!is.null(trend_info)) {
+      cat("\nVariance trend method:", trend_info$method, "\n")
+      if (!is.null(trend_info$tau) && is.finite(trend_info$tau)) {
+        cat("Quantile level tau:", trend_info$tau, "\n")
+      }
+    }
+  })
+  
+  output$trend_info <- renderPrint({
+    req(analysis_result())
+    
+    info <- attr(analysis_result(), "trend.info")
+    
+    if (is.null(info)) {
+      cat("No variance trend information available.\n")
+      cat("This is expected when standard one-way ANOVA is selected.\n")
+      return()
+    }
+    
+    cat("Variance trend method:", info$method, "\n")
+    
+    if (!is.null(info$tau) && is.finite(info$tau)) {
+      cat("Quantile level tau:", info$tau, "\n")
+    }
+    
+    if (!is.null(info$qr.df)) {
+      cat("Quantile regression spline df:", info$qr.df, "\n")
+    }
+    
+    if (!is.null(info$spline.df)) {
+      cat("Smoothing spline df:", info$spline.df, "\n")
+    }
+  })
+  
+  output$base_var_table <- renderDT({
+    req(analysis_result())
+    
+    base_var <- attr(analysis_result(), "base.var")
+    
+    if (is.null(base_var) || nrow(base_var) == 0) {
+      return(
+        DT::datatable(
+          data.frame(Message = "No bin-level variance points available.")
+        )
+      )
+    }
+    
+    DT::datatable(
+      base_var,
+      options = list(scrollX = TRUE, pageLength = 10)
+    )
   })
   
   output$trim_info <- renderPrint({
@@ -382,16 +482,34 @@ sample4,Treatment"
       if (!is.null(method) && method == "standard_anova") {
         cat("This is expected because standard one-way ANOVA does not use LPE variance-trend trimming.\n")
       } else {
-        cat("This may occur when no between-group-derived trimming information was produced.\n")
+        cat("This may occur when no LPE variance-trend trimming information was produced.\n")
       }
       
       return()
     }
     
-    cat("outlier trimming method: ", input$trim_method, "\n")
-    cat("Between values before trimming:", info$n_between_before, "\n")
-    cat("Between values after trimming:", info$n_between_after, "\n")
-    cat("Between values removed:", info$n_between_removed, "\n")
+    cat("Trimming method:", info$method, "\n")
+    cat("Trimming rule:", info$rule, "\n")
+    
+    if (!is.null(info$trim.scale)) {
+      cat("Trimming scale:", info$trim.scale, "\n")
+    }
+    
+    if (!is.null(info$n_total_before)) {
+      cat("Total values before trimming:", info$n_total_before, "\n")
+      cat("Total values after trimming:", info$n_total_after, "\n")
+      cat("Total values removed:", info$n_total_removed, "\n")
+    }
+    
+    cat("\nWithin-group values:\n")
+    cat("Before:", info$n_within_before, "\n")
+    cat("After:", info$n_within_after, "\n")
+    cat("Removed:", info$n_within_removed, "\n")
+    
+    cat("\nBetween-group-derived values:\n")
+    cat("Before:", info$n_between_before, "\n")
+    cat("After:", info$n_between_after, "\n")
+    cat("Removed:", info$n_between_removed, "\n")
   })
   
   output$trim_table <- renderDT({
@@ -439,13 +557,18 @@ sample4,Treatment"
     }
     
     if (input$analysis_method != "standard_anova") {
+      cat("n.bin: ", input$n_bin, "\n")
+      cat("spline df: ", input$df, "\n")
+      cat("trend method: ", input$trend_method, "\n")
+      
+      if (!is.null(input$trend_method) &&
+          input$trend_method == "quantile_regression") {
+        cat("tau: ", input$tau, "\n")
+      }
+      
       cat("use_weighted_between: ", input$use_weighted_between, "\n")
       cat("trimming method: ", input$trim_method, "\n")
-      cat("Trimming method:", info$method, "\n")
-      cat("Trimming rule:", info$rule, "\n")
-      cat("Between values before trimming:", info$n_between_before, "\n")
-      cat("Between values after trimming:", info$n_between_after, "\n")
-      cat("Between values removed:", info$n_between_removed, "\n")
+      cat("p-value method: ", input$p_method, "\n")
     }
   })
 }
