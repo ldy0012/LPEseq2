@@ -126,7 +126,7 @@ ui <- fluidPage(
           "trim_method",
           "Pairwise outlier trimming method",
           choices = c(
-            "Pooled bin-wise IQR / boxplot rule" = "iqr",
+            "Pooled bin-wise IQR" = "iqr",
             "None" = "none"
           ),
           selected = "iqr"
@@ -134,7 +134,7 @@ ui <- fluidPage(
         
         helpText(
           "The IQR method pools within-group and between-group-derived pairwise values, ",
-          "divides them into expression-intensity A-bins, and applies the conventional 1.5 × IQR boxplot rule within each bin. ",
+          "divides them into expression-intensity A-bins, and applies the conventional 1.5 within each bin. ",
           "Outlier detection is performed on the M-value scale used for variance trend estimation."
         ),
         
