@@ -37,7 +37,8 @@ values. \code{"none"} performs no outlier trimming.}
 estimates. \code{"quantile_regression"} fits an upper-quantile
 regression trend to reduce potential variance underestimation.}
 
-\item{tau}{Quantile level used when}
+\item{tau}{Quantile level used when
+\code{trend.method = "quantile_regression"}. Default is \code{0.75}.}
 
 \item{use_weighted_between}{Logical. Whether to include weighted between-group
 differences in variance trend estimation.}

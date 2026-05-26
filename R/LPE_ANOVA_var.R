@@ -385,6 +385,9 @@ LPE_ANOVA_var <- function(expr,
 
     trim.info$n_within_removed <- trim.info$n_within_before - trim.info$n_within_after
     trim.info$n_between_removed <- trim.info$n_between_before - trim.info$n_between_after
+
+    trim.info$n_total_after <- length(M_all)
+    trim.info$n_total_removed <- trim.info$n_total_before - trim.info$n_total_after
   }
 
   # -----------------------------
@@ -530,7 +533,8 @@ LPE_ANOVA_var <- function(expr,
 
       trend.info <- list(
         method = "mean_spline_fallback",
-        tau = tau
+        tau = tau,
+        spline.df = df_use
       )
 
     } else {

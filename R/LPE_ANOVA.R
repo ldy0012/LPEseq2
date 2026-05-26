@@ -17,6 +17,7 @@
 #'   estimates. \code{"quantile_regression"} fits an upper-quantile
 #'   regression trend to reduce potential variance underestimation.
 #' @param tau Quantile level used when
+#'   \code{trend.method = "quantile_regression"}. Default is \code{0.75}.
 #' @param use_weighted_between Logical. Whether to include weighted between-group
 #'   differences in variance trend estimation.
 #' @param analysis.method Analysis method. One of \code{"LPE"},
@@ -141,6 +142,7 @@ LPE_ANOVA <- function(object,
     attr(res, "standard.min.group.n") <- standard.min.group.n
     attr(res, "trim.info") <- NULL
     attr(res, "trend.info") <- NULL
+    attr(res, "base.var") <- NULL
 
     return(res)
   }
@@ -263,7 +265,6 @@ LPE_ANOVA <- function(object,
   attr(res, "trim.info") <- trim.info
   attr(res, "trend.info") <- trend.info
   attr(res, "base.var") <- base.var
-  attr(res, "base.var") <- NULL
 
   return(res)
 }

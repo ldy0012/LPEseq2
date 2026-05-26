@@ -5,7 +5,5 @@ Type: Shiny
 Imports:
     shiny,
     DT,
-    LPEseq2
-Remotes:
-    github::ldy0012/LPEseq2
+    quantreg
 Encoding: UTF-8
