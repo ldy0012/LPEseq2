@@ -222,8 +222,30 @@ ui <- fluidPage(
         ),
         
         tabPanel(
+          "Spline Plot",
+          plotOutput("spline_plot", height = "500px"),
+          helpText("Blue dots: bin-level variance estimates | Red line: fitted variance trend spline")
+        ),
+        
+        # ###
+        # tabPanel(
+        #   "Volcano Plot",
+        #   fluidRow(
+        #     column(3,
+        #            numericInput("volcano_fc_cutoff", "Mean difference cutoff", value = 1, min = 0, step = 0.1),
+        #            numericInput("volcano_q_cutoff", "q-value cutoff", value = 0.05, min = 0, max = 1, step = 0.01),
+        #            helpText("X-axis: Between-group MS (log2 scale) | Y-axis: -log10(p.value)")
+        #     ),
+        #     column(9,
+        #            plotOutput("volcano_plot", height = "500px")
+        #     )
+        #   )
+        # ),
+        # ###
+        
+        tabPanel(
           "Log",
-          verbatimTextOutput("log_text")
+          verbatimTextOutput("log_text"),
         )
       )
     )
@@ -541,6 +563,118 @@ sample4,Treatment"
       write.csv(analysis_result(), file, row.names = FALSE)
     }
   )
+  
+  output$spline_plot <- renderPlot({
+    req(analysis_result())
+    
+    base_var  <- attr(analysis_result(), "base.var")
+    trend_info <- attr(analysis_result(), "trend.info")
+    
+    # Show a message when standard ANOVA is selected (no spline is estimated)
+    if (is.null(base_var) || nrow(base_var) == 0) {
+      plot.new()
+      text(0.5, 0.5,
+           "Spline plot is only available for LPE-ANOVA.\nStandard ANOVA does not estimate a variance trend.",
+           cex = 1.2, col = "gray40")
+      return()
+    }
+    
+    # Build a dense x sequence for a smooth curve
+    x_seq <- seq(min(base_var$A), max(base_var$A), length.out = 300)
+    
+    # Re-fit the smoothing spline from the stored bin-level variance points
+    df_use <- if (!is.null(trend_info$spline.df)) trend_info$spline.df else 10
+    df_use <- min(df_use, nrow(base_var) - 1)
+    
+    sp_fit <- tryCatch(
+      stats::smooth.spline(base_var$A, base_var$var.M, df = df_use),
+      error = function(e) NULL
+    )
+    
+    # Scatter plot of bin-level variance estimates
+    plot(
+      base_var$A, base_var$var.M,
+      pch  = 16, col = "#3B82F6AA", cex = 0.9,
+      xlab = "Mean Expression (A)",
+      ylab = "Estimated Local Pooled Variance",
+      main = paste0("Intensity-Dependent Variance Trend\n(method: ",
+                    if (!is.null(trend_info$method)) trend_info$method else "unknown", ")"),
+      las  = 1
+    )
+    
+    # Overlay the fitted spline curve
+    if (!is.null(sp_fit)) {
+      y_pred <- stats::predict(sp_fit, x_seq)$y
+      lines(x_seq, y_pred, col = "#EF4444", lwd = 2.5)
+    }
+    
+    legend("topright",
+           legend = c("Bin-level variance", "Fitted spline trend"),
+           col    = c("#3B82F6AA", "#EF4444"),
+           pch    = c(16, NA), lty = c(NA, 1), lwd = c(NA, 2.5),
+           bty    = "n")
+  })
+  
+  # ###
+  # output$volcano_plot <- renderPlot({
+  #   req(analysis_result())
+  #   
+  #   res <- analysis_result()
+  #   
+  #   # Guard: required columns must exist
+  #   if (!all(c("MS_between", "p.value", "q.value") %in% colnames(res))) {
+  #     plot.new()
+  #     text(0.5, 0.5, "Required columns not found in result.", cex = 1.2, col = "gray40")
+  #     return()
+  #   }
+  #   
+  #   fc_cut <- input$volcano_fc_cutoff
+  #   q_cut  <- input$volcano_q_cutoff
+  #   
+  #   # X-axis: log2-transformed between-group mean square
+  #   # Y-axis: -log10 p-value
+  #   x <- log2(res$MS_between + .Machine$double.xmin)
+  #   y <- -log10(res$p.value  + .Machine$double.xmin)
+  #   
+  #   # Classify genes as significant or not
+  #   sig     <- res$q.value < q_cut & res$MS_between > fc_cut
+  #   col_vec <- ifelse(sig, "#EF4444", "#94A3B8")
+  #   cex_vec <- ifelse(sig, 0.9, 0.7)
+  #   
+  #   plot(
+  #     x, y,
+  #     col  = col_vec,
+  #     pch  = 16,
+  #     cex  = cex_vec,
+  #     xlab = "log2(MS_between)",
+  #     ylab = "-log10(p.value)",
+  #     main = paste0("Volcano Plot  (q < ", q_cut, ",  MS_between > ", fc_cut, ")"),
+  #     las  = 1
+  #   )
+  #   
+  #   # Reference lines for the chosen cutoffs
+  #   abline(h = -log10(q_cut),                              col = "#64748B", lty = 2, lwd = 1.2)
+  #   abline(v = log2(fc_cut + .Machine$double.xmin),        col = "#64748B", lty = 2, lwd = 1.2)
+  #   
+  #   n_sig <- sum(sig, na.rm = TRUE)
+  #   legend("topright",
+  #          legend = c(paste0("Significant (n = ", n_sig, ")"),
+  #                     paste0("Not significant (n = ", nrow(res) - n_sig, ")")),
+  #          col    = c("#EF4444", "#94A3B8"),
+  #          pch    = 16, bty = "n", pt.cex = 1)
+  #   
+  #   # Label the top 10 most significant genes
+  #   if (n_sig > 0) {
+  #     top_idx <- order(res$p.value)[seq_len(min(10, n_sig))]
+  #     top_sig <- top_idx[sig[top_idx]]
+  #     if (length(top_sig) > 0) {
+  #       text(x[top_sig], y[top_sig],
+  #            labels = res$gene[top_sig],
+  #            cex = 0.65, pos = 3, col = "#1E293B")
+  #     }
+  #   }
+  # })
+  # ###
   
   output$log_text <- renderPrint({
     cat("LPEseq2 web tool\n")
