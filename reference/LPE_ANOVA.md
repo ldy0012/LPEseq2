@@ -87,6 +87,7 @@ LPE_ANOVA(
 
 A data.frame containing gene-level test statistics. The selected
 analysis method is stored in `attr(result, "analysis.method")`. For
-LPE-ANOVA, trimming information, variance trend information, and
-bin-level variance points are stored in `attr(result, "trim.info")`,
-`attr(result, "trend.info")`, and `attr(result, "base.var")`.
+LPE-ANOVA, trimming information, variance trend information, bin-level
+variance points, and the fitted variance trend object are stored in
+`attr(result, "trim.info")`, `attr(result, "trend.info")`,
+`attr(result, "base.var")`, and `attr(result, "var.spline")`.

@@ -64,36 +64,56 @@
 <p>LPEseq2 supports several normalization methods.</p>
 <p>For basic use, <code>library_size</code> normalization can be used without additional Bioconductor packages.</p>
 <p>For TMM and DESeq2 normalization, install the following packages:</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="cf">if</span> (<span class="sc">!</span><span class="fu">requireNamespace</span>(<span class="st">"BiocManager"</span>, <span class="at">quietly =</span> <span class="cn">TRUE</span>)) {</span>
-<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>  <span class="fu">install.packages</span>(<span class="st">"BiocManager"</span>)</span>
-<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>}</span>
-<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a></span>
-<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>BiocManager<span class="sc">::</span><span class="fu">install</span>(<span class="fu">c</span>(<span class="st">"edgeR"</span>, <span class="st">"DESeq2"</span>))</span>
-<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a></span>
-<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>For upper<span class="sc">-</span>quantile regression<span class="sc">-</span>based variance trend estimation, install<span class="sc">:</span></span>
-<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a></span>
-<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a><span class="st">```</span><span class="at">r</span></span>
-<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a><span class="at">install.packages("quantreg")</span></span></code></pre></div>
-<pre><code>
-## Main functions
-
-| Function | Description |
-|---|---|
-| `LPE_preprocess()` | Checks count matrix and sample metadata, filters low-count genes, and performs normalization |
-| `LPE_ANOVA()` | Performs LPE-ANOVA, standard one-way ANOVA, or automatic method selection for multi-group differential expression analysis |
-| `LPE_ANOVA_var()` | Estimates an intensity-dependent variance trend and stores trimming information |
-
-## Input format
-
-The count matrix should contain genes as rows and samples as columns.
-
-```r
-# Example count matrix
-#        sample1 sample2 sample3 sample4
-# gene1      100     120      80      95
-# gene2       50      60      55      70</code></pre>
-<p>The sample metadata should contain samples as rows and variables as columns.</p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw">if</span> <span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace</a></span><span class="op">(</span><span class="st">"BiocManager"</span>, quietly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"BiocManager"</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="fu">BiocManager</span><span class="fu">::</span><span class="fu">install</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"edgeR"</span>, <span class="st">"DESeq2"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p>For upper-quantile regression-based variance trend estimation, install:</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"quantreg"</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="main-functions">Main functions<a class="anchor" aria-label="anchor" href="#main-functions"></a>
+</h2>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr>
+<th>Function</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><code><a href="reference/LPE_preprocess.html">LPE_preprocess()</a></code></td>
+<td>Checks count matrix and sample metadata, filters low-count genes, and performs normalization</td>
+</tr>
+<tr>
+<td><code><a href="reference/LPE_ANOVA.html">LPE_ANOVA()</a></code></td>
+<td>Performs LPE-ANOVA, standard one-way ANOVA, or automatic method selection for multi-group differential expression analysis</td>
+</tr>
+<tr>
+<td><code><a href="reference/LPE_ANOVA_var.html">LPE_ANOVA_var()</a></code></td>
+<td>Estimates an intensity-dependent variance trend and stores trimming information</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section level2">
+<h2 id="input-format">Input format<a class="anchor" aria-label="anchor" href="#input-format"></a>
+</h2>
+<p>Supported file formats: CSV (comma-separated), TSV (tab-separated), and other delimiter-separated text files (.txt). The separator is detected automatically.</p>
+<p>The count matrix should contain genes as rows and samples as columns. The first column must contain gene identifiers.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Example count matrix</span></span>
+<span><span class="co">#        sample1 sample2 sample3 sample4</span></span>
+<span><span class="co"># gene1      100     120      80      95</span></span>
+<span><span class="co"># gene2       50      60      55      70</span></span></code></pre></div>
+<p>The sample metadata should contain samples as rows and variables as columns.</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Example colData</span></span>
 <span><span class="co">#          group</span></span>
 <span><span class="co"># sample1 Control</span></span>
@@ -105,7 +125,7 @@ The count matrix should contain genes as rows and samples as columns.
 <div class="section level2">
 <h2 id="example">Example<a class="anchor" aria-label="anchor" href="#example"></a>
 </h2>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://ldy0012.github.io/LPEseq2/">LPEseq2</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">123</span><span class="op">)</span></span>
@@ -149,7 +169,7 @@ The count matrix should contain genes as rows and samples as columns.
 <h3 id="advanced-example-with-iqr-based-trimming">Advanced example with IQR-based trimming<a class="anchor" aria-label="anchor" href="#advanced-example-with-iqr-based-trimming"></a>
 </h3>
 <p>The <code>iqr</code> trimming method applies the conventional 1.5 × IQR boxplot rule within expression-intensity A-bins. Within-group and between-group-derived pairwise values are pooled before trimming, and outliers are detected on the M-value scale used for variance trend estimation.</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">res_iqr</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_ANOVA.html">LPE_ANOVA</a></span><span class="op">(</span></span>
 <span>  object <span class="op">=</span> <span class="va">prep</span>,</span>
 <span>  analysis.method <span class="op">=</span> <span class="st">"LPE"</span>,</span>
@@ -165,7 +185,8 @@ The count matrix should contain genes as rows and samples as columns.
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">res_iqr</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res_iqr</span>, <span class="st">"trim.info"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res_iqr</span>, <span class="st">"trend.info"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res_iqr</span>, <span class="st">"base.var"</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res_iqr</span>, <span class="st">"base.var"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res_iqr</span>, <span class="st">"var.spline"</span><span class="op">)</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
@@ -199,7 +220,7 @@ The count matrix should contain genes as rows and samples as columns.
 <div class="section level3">
 <h3 id="lpe-anova-mode">LPE-ANOVA mode<a class="anchor" aria-label="anchor" href="#lpe-anova-mode"></a>
 </h3>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">res_lpe</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_ANOVA.html">LPE_ANOVA</a></span><span class="op">(</span></span>
 <span>  object <span class="op">=</span> <span class="va">prep</span>,</span>
 <span>  analysis.method <span class="op">=</span> <span class="st">"LPE"</span>,</span>
@@ -213,7 +234,7 @@ The count matrix should contain genes as rows and samples as columns.
 <div class="section level3">
 <h3 id="standard-one-way-anova-mode">Standard one-way ANOVA mode<a class="anchor" aria-label="anchor" href="#standard-one-way-anova-mode"></a>
 </h3>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">res_standard</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_ANOVA.html">LPE_ANOVA</a></span><span class="op">(</span></span>
 <span>  object <span class="op">=</span> <span class="va">prep</span>,</span>
 <span>  analysis.method <span class="op">=</span> <span class="st">"standard_anova"</span>,</span>
@@ -224,7 +245,7 @@ The count matrix should contain genes as rows and samples as columns.
 <h3 id="auto-mode">Auto mode<a class="anchor" aria-label="anchor" href="#auto-mode"></a>
 </h3>
 <p>In <code>auto</code> mode, LPEseq2 selects standard one-way ANOVA when every group has at least <code>standard.min.group.n</code> samples. Otherwise, LPE-ANOVA is used.</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">res_auto</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_ANOVA.html">LPE_ANOVA</a></span><span class="op">(</span></span>
 <span>  object <span class="op">=</span> <span class="va">prep</span>,</span>
 <span>  analysis.method <span class="op">=</span> <span class="st">"auto"</span>,</span>
@@ -238,7 +259,7 @@ The count matrix should contain genes as rows and samples as columns.
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res_auto</span>, <span class="st">"analysis.method"</span><span class="op">)</span></span></code></pre></div>
 <p>The default threshold is:</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">standard.min.group.n</span> <span class="op">=</span> <span class="fl">5</span></span></code></pre></div>
 <p>This threshold is a practical heuristic. It can be adjusted depending on the study design and the expected reliability of gene-wise variance estimation.</p>
 </div>
@@ -268,7 +289,7 @@ The count matrix should contain genes as rows and samples as columns.
 </tbody>
 </table>
 <p>When <code>trim.method = "iqr"</code>, LPEseq2 first pools within-group pairwise values and between-group-derived values. The pooled values are divided into expression-intensity A-bins, and the conventional boxplot rule is applied within each bin:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">lower_bound</span> <span class="op">=</span> <span class="va">Q1</span> <span class="op">-</span> <span class="fl">1.5</span> <span class="op">*</span> <span class="va">IQR</span></span>
 <span><span class="va">upper_bound</span> <span class="op">=</span> <span class="va">Q3</span> <span class="op">+</span> <span class="fl">1.5</span> <span class="op">*</span> <span class="va">IQR</span></span></code></pre></div>
 <p>Outlier detection is performed on the M-value scale because M is the scale used for local pooled variance estimation.</p>
@@ -302,7 +323,7 @@ The count matrix should contain genes as rows and samples as columns.
 <h3 id="mean-smoothing-spline">Mean smoothing spline<a class="anchor" aria-label="anchor" href="#mean-smoothing-spline"></a>
 </h3>
 <p>The default method is:</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">trend.method</span> <span class="op">=</span> <span class="st">"mean_spline"</span></span></code></pre></div>
 <p>This method estimates the average local pooled variance trend across expression-intensity bins.</p>
 </div>
@@ -310,10 +331,10 @@ The count matrix should contain genes as rows and samples as columns.
 <h3 id="quantile-regression">Quantile regression<a class="anchor" aria-label="anchor" href="#quantile-regression"></a>
 </h3>
 <p>The quantile regression method can be used when a more conservative variance trend is desired.</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">trend.method</span> <span class="op">=</span> <span class="st">"quantile_regression"</span></span>
 <span><span class="va">tau</span> <span class="op">=</span> <span class="fl">0.75</span></span></code></pre></div>
-<p>This method estimates an upper-quantile variance trend. It may reduce potential variance underestimation for high-variability genes, but it can also reduce statistical power.</p>
+<p>This method estimates an upper-quantile variance trend. It may reduce potential variance underestimation for high-variability genes, but it can also reduce statistical power. The quantile regression fit is used directly for gene-wise variance prediction without secondary smoothing spline refitting.</p>
 <p>The <code>quantreg</code> package is required only when <code>trend.method = "quantile_regression"</code> is used.</p>
 </div>
 </div>
@@ -399,21 +420,56 @@ The count matrix should contain genes as rows and samples as columns.
 <h3 id="analysis-method-information">Analysis method information<a class="anchor" aria-label="anchor" href="#analysis-method-information"></a>
 </h3>
 <p>The selected analysis method is stored as an attribute of the result object.</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"analysis.method"</span><span class="op">)</span></span></code></pre></div>
 <p>If <code>analysis.method = "auto"</code> is used, this attribute shows which method was actually selected after checking the group sample sizes.</p>
 <p>The originally requested analysis mode can also be stored as:</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"requested.analysis.method"</span><span class="op">)</span></span></code></pre></div>
 <p>The sample-size threshold used for auto mode can be checked with:</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"standard.min.group.n"</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="variance-trend-object">Variance trend object<a class="anchor" aria-label="anchor" href="#variance-trend-object"></a>
+</h3>
+<p>The fitted variance trend object is stored as:</p>
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"var.spline"</span><span class="op">)</span></span></code></pre></div>
+<p>This is a list containing the following elements.</p>
+<table class="table">
+<thead><tr>
+<th>Element</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><code>type</code></td>
+<td>
+<code>"smooth.spline"</code> or <code>"rq"</code> depending on <code>trend.method</code>
+</td>
+</tr>
+<tr>
+<td><code>object</code></td>
+<td>The fitted model object (<code>smooth.spline</code> or <code>rq</code>)</td>
+</tr>
+<tr>
+<td><code>x_min</code></td>
+<td>Lower boundary of the training expression range</td>
+</tr>
+<tr>
+<td><code>x_max</code></td>
+<td>Upper boundary of the training expression range</td>
+</tr>
+</tbody>
+</table>
+<p>When <code>analysis.method = "standard_anova"</code> is selected, <code>attr(res, "var.spline")</code> is <code>NULL</code>.</p>
 </div>
 <div class="section level3">
 <h3 id="trimming-information">Trimming information<a class="anchor" aria-label="anchor" href="#trimming-information"></a>
 </h3>
 <p>When LPE-ANOVA is used, trimming information is stored as an attribute of the result object.</p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"trim.info"</span><span class="op">)</span></span></code></pre></div>
 <p>This information includes the trimming method, the IQR rule information, the number of pairwise values before and after trimming, and the number of removed values.</p>
 <p>For <code>trim.method = "iqr"</code>, the threshold table may include:</p>
@@ -489,7 +545,7 @@ The count matrix should contain genes as rows and samples as columns.
 </tbody>
 </table>
 <p>When standard one-way ANOVA is selected, trimming information is not available because the LPE variance trend is not estimated.</p>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"trim.info"</span><span class="op">)</span></span></code></pre></div>
 <p>In this case, the trimming information is expected to be <code>NULL</code>.</p>
 </div>
@@ -497,17 +553,21 @@ The count matrix should contain genes as rows and samples as columns.
 <h3 id="variance-trend-information">Variance trend information<a class="anchor" aria-label="anchor" href="#variance-trend-information"></a>
 </h3>
 <p>When LPE-ANOVA is used, variance trend information is stored as an attribute of the result object.</p>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"trend.info"</span><span class="op">)</span></span></code></pre></div>
 <p>This includes the variance trend fitting method, the quantile level used for quantile regression, and the degrees of freedom used for spline fitting when available.</p>
 <p>The bin-level variance points used for trend fitting can be checked with:</p>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"base.var"</span><span class="op">)</span></span></code></pre></div>
-<p>This object contains the representative expression-intensity value and the estimated local pooled variance for each bin. ## Website</p>
+<p>This object contains the representative expression-intensity value and the estimated local pooled variance for each bin.</p>
+</div>
+</div>
+<div class="section level2">
+<h2 id="website">Website<a class="anchor" aria-label="anchor" href="#website"></a>
+</h2>
 <p>Package website: <a href="https://ldy0012.github.io/LPEseq2/" class="uri">https://ldy0012.github.io/LPEseq2/</a></p>
 <p>You can run LPEseq2 directly in the browser using the Shiny web tool:</p>
 <p><a href="https://ldy0012.shinyapps.io/lpeseq2app/" class="external-link">Launch LPEseq2 Shiny Web Tool</a></p>
-</div>
 </div>
 <div class="section level2">
 <h2 id="license">License<a class="anchor" aria-label="anchor" href="#license"></a>

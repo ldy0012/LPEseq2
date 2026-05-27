@@ -110,10 +110,13 @@ differences in variance trend estimation.</p></dd>
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A <code>smooth.spline</code> object representing the estimated variance
-trend. Trimming information is stored in <code>attr(object, "trim.info")</code>,
-trend information is stored in <code>attr(object, "trend.info")</code>, and
-bin-level variance points are stored in <code>attr(object, "base.var")</code>.</p>
+    <p>A list containing <code>type</code>, <code>object</code>, <code>x_min</code>,
+and <code>x_max</code>. When <code>trend.method = "mean_spline"</code> or fallback,
+<code>object</code> is a <code>smooth.spline</code>. When <code>trend.method =
+  "quantile_regression"</code>, <code>object</code> is an <code>rq</code> object.
+Trimming information is stored in <code>attr(result, "trim.info")</code>,
+trend information is stored in <code>attr(result, "trend.info")</code>, and
+bin-level variance points are stored in <code>attr(result, "base.var")</code>.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

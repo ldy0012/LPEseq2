@@ -124,9 +124,11 @@ standard one-way ANOVA when <code>analysis.method = "auto"</code>.</p></dd>
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A data.frame containing gene-level test statistics. The selected
 analysis method is stored in <code>attr(result, "analysis.method")</code>.
-For LPE-ANOVA, trimming information, variance trend information, and
-bin-level variance points are stored in <code>attr(result, "trim.info")</code>,
-<code>attr(result, "trend.info")</code>, and <code>attr(result, "base.var")</code>.</p>
+For LPE-ANOVA, trimming information, variance trend information,
+bin-level variance points, and the fitted variance trend object are
+stored in <code>attr(result, "trim.info")</code>,
+<code>attr(result, "trend.info")</code>, <code>attr(result, "base.var")</code>,
+and <code>attr(result, "var.spline")</code>.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

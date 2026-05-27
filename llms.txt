@@ -31,36 +31,45 @@ additional Bioconductor packages.
 For TMM and DESeq2 normalization, install the following packages:
 
 ``` r
+
 if (!requireNamespace("BiocManager", quietly = TRUE)) {
   install.packages("BiocManager")
 }
 
 BiocManager::install(c("edgeR", "DESeq2"))
+```
 
 For upper-quantile regression-based variance trend estimation, install:
 
-```r
+``` r
+
 install.packages("quantreg")
 ```
 
+## Main functions
 
-    ## Main functions
+| Function | Description |
+|----|----|
+| [`LPE_preprocess()`](https://ldy0012.github.io/LPEseq2/reference/LPE_preprocess.md) | Checks count matrix and sample metadata, filters low-count genes, and performs normalization |
+| [`LPE_ANOVA()`](https://ldy0012.github.io/LPEseq2/reference/LPE_ANOVA.md) | Performs LPE-ANOVA, standard one-way ANOVA, or automatic method selection for multi-group differential expression analysis |
+| [`LPE_ANOVA_var()`](https://ldy0012.github.io/LPEseq2/reference/LPE_ANOVA_var.md) | Estimates an intensity-dependent variance trend and stores trimming information |
 
-    | Function | Description |
-    |---|---|
-    | `LPE_preprocess()` | Checks count matrix and sample metadata, filters low-count genes, and performs normalization |
-    | `LPE_ANOVA()` | Performs LPE-ANOVA, standard one-way ANOVA, or automatic method selection for multi-group differential expression analysis |
-    | `LPE_ANOVA_var()` | Estimates an intensity-dependent variance trend and stores trimming information |
+## Input format
 
-    ## Input format
+Supported file formats: CSV (comma-separated), TSV (tab-separated), and
+other delimiter-separated text files (.txt). The separator is detected
+automatically.
 
-    The count matrix should contain genes as rows and samples as columns.
+The count matrix should contain genes as rows and samples as columns.
+The first column must contain gene identifiers.
 
-    ```r
-    # Example count matrix
-    #        sample1 sample2 sample3 sample4
-    # gene1      100     120      80      95
-    # gene2       50      60      55      70
+``` r
+
+# Example count matrix
+#        sample1 sample2 sample3 sample4
+# gene1      100     120      80      95
+# gene2       50      60      55      70
+```
 
 The sample metadata should contain samples as rows and variables as
 columns.
@@ -149,6 +158,7 @@ head(res_iqr)
 attr(res_iqr, "trim.info")
 attr(res_iqr, "trend.info")
 attr(res_iqr, "base.var")
+attr(res_iqr, "var.spline")
 ```
 
 ## Analysis methods
@@ -283,7 +293,9 @@ tau = 0.75
 
 This method estimates an upper-quantile variance trend. It may reduce
 potential variance underestimation for high-variability genes, but it
-can also reduce statistical power.
+can also reduce statistical power. The quantile regression fit is used
+directly for gene-wise variance prediction without secondary smoothing
+spline refitting.
 
 The `quantreg` package is required only when
 `trend.method = "quantile_regression"` is used.
@@ -346,6 +358,27 @@ The sample-size threshold used for auto mode can be checked with:
 
 attr(res, "standard.min.group.n")
 ```
+
+### Variance trend object
+
+The fitted variance trend object is stored as:
+
+``` r
+
+attr(res, "var.spline")
+```
+
+This is a list containing the following elements.
+
+| Element  | Description                                             |
+|----------|---------------------------------------------------------|
+| `type`   | `"smooth.spline"` or `"rq"` depending on `trend.method` |
+| `object` | The fitted model object (`smooth.spline` or `rq`)       |
+| `x_min`  | Lower boundary of the training expression range         |
+| `x_max`  | Upper boundary of the training expression range         |
+
+When `analysis.method = "standard_anova"` is selected,
+`attr(res, "var.spline")` is `NULL`.
 
 ### Trimming information
 
@@ -413,7 +446,9 @@ attr(res, "base.var")
 ```
 
 This object contains the representative expression-intensity value and
-the estimated local pooled variance for each bin. \## Website
+the estimated local pooled variance for each bin.
+
+## Website
 
 Package website: <https://ldy0012.github.io/LPEseq2/>
 

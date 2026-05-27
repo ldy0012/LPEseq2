@@ -65,7 +65,10 @@ LPE_ANOVA_var(
 
 ## Value
 
-A `smooth.spline` object representing the estimated variance trend.
-Trimming information is stored in `attr(object, "trim.info")`, trend
-information is stored in `attr(object, "trend.info")`, and bin-level
-variance points are stored in `attr(object, "base.var")`.
+A list containing `type`, `object`, `x_min`, and `x_max`. When
+`trend.method = "mean_spline"` or fallback, `object` is a
+`smooth.spline`. When `trend.method = "quantile_regression"`, `object`
+is an `rq` object. Trimming information is stored in
+`attr(result, "trim.info")`, trend information is stored in
+`attr(result, "trend.info")`, and bin-level variance points are stored
+in `attr(result, "base.var")`.
