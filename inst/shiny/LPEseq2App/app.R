@@ -617,21 +617,27 @@ sample4   Treatment"
     x_min_plot <- if (!is.null(var_spline)) var_spline$x_min else min(base_var$A)
     x_max_plot <- if (!is.null(var_spline)) var_spline$x_max else max(base_var$A)
     
-    x_seq <- seq(x_min_plot, x_max_plot, length.out = 300)
-    
     y_pred <- NULL
     
     if (!is.null(var_spline)) {
       if (var_spline$type == "smooth.spline") {
+        x_seq <- seq(x_min_plot, x_max_plot, length.out = 300)
         x_seq_clipped <- pmin(pmax(x_seq, var_spline$x_min), var_spline$x_max)
         y_pred <- stats::predict(var_spline$object, x_seq_clipped)$y
         
       } else if (var_spline$type == "rq") {
-        x_seq_clipped <- pmin(pmax(x_seq, var_spline$x_min), var_spline$x_max)
-        y_pred <- exp(as.numeric(stats::predict(
+        
+        x_flat <- seq(var_spline$x_floor, var_spline$x_min, length.out = 50)
+        y_flat <- rep(var_spline$var_floor, 50)
+        
+        x_rq <- seq(var_spline$x_min, var_spline$x_max, length.out = 300)
+        y_rq <- exp(as.numeric(stats::predict(
           var_spline$object,
-          newdata = data.frame(A = x_seq_clipped)
+          newdata = data.frame(A = x_rq)
         )))
+        
+        x_seq  <- c(x_flat, x_rq)
+        y_pred <- c(y_flat, y_rq)
       }
     }
     

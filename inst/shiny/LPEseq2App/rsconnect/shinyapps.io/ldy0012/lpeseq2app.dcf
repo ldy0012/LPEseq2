@@ -5,6 +5,6 @@ account: ldy0012
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 17359185
-bundleId: 12044869
+bundleId: 12045053
 url: https://ldy0012.shinyapps.io/lpeseq2app/
 version: 1

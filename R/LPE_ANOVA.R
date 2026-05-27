@@ -213,6 +213,8 @@ LPE_ANOVA <- function(object,
       newdata = data.frame(A = x_clipped)
     )))
 
+    pred.var[gene.mean < var.result$x_min] <- var.result$var_floor
+
     fitted_rq <- exp(as.numeric(var.result$object$fitted.values))
     positive_y <- fitted_rq[is.finite(fitted_rq) & fitted_rq > 0]
 
@@ -222,7 +224,6 @@ LPE_ANOVA <- function(object,
 
     var_floor <- min(positive_y, na.rm = TRUE)
   }
-
   pred.var[!is.finite(pred.var)] <- var_floor
   pred.var <- pmax(pred.var, var_floor)
 

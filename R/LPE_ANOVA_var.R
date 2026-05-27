@@ -512,10 +512,13 @@ LPE_ANOVA_var <- function(expr,
 
   } else if (trend.method == "quantile_regression") {
 
-    qr_df <- min(df_use, nrow(base.var) - 2)
+    is_floor <- seq_len(nrow(base.var)) < idx_max
+    base.var.rq <- base.var[!is_floor, ]
+
+    qr_df <- min(df_use, nrow(base.var.rq) - 2)
     if (qr_df < 1) qr_df <- 1
 
-    qr_data <- base.var
+    qr_data <- base.var.rq
     qr_data$log_var.M <- log(qr_data$var.M)
 
     qr_fit <- try(
@@ -543,15 +546,17 @@ LPE_ANOVA_var <- function(expr,
       )
 
       result <- list(
-        type   = "smooth.spline",
-        object = sm.spline,
-        x_min  = min(base.var$A),
-        x_max  = max(base.var$A)
+        type      = "rq",
+        object    = qr_fit,
+        x_min     = min(base.var.rq$A),
+        x_max     = max(base.var$A),
+        x_floor   = min(base.var$A),
+        var_floor = max_var
       )
 
     } else {
 
-      trend.info <- list(          # ← return 전에 먼저 정의
+      trend.info <- list(
         method = "quantile_regression",
         tau = tau,
         qr.df = qr_df,
