@@ -614,27 +614,32 @@ sample4   Treatment"
       return()
     }
     
-    x_min_plot <- if (!is.null(var_spline)) var_spline$x_min else min(base_var$A)
-    x_max_plot <- if (!is.null(var_spline)) var_spline$x_max else max(base_var$A)
-    
+    x_seq  <- NULL
     y_pred <- NULL
     
     if (!is.null(var_spline)) {
+      
       if (var_spline$type == "smooth.spline") {
-        x_seq <- seq(x_min_plot, x_max_plot, length.out = 300)
+        x_seq <- seq(min(base_var$A), max(base_var$A), length.out = 300)
         x_seq_clipped <- pmin(pmax(x_seq, var_spline$x_min), var_spline$x_max)
         y_pred <- stats::predict(var_spline$object, x_seq_clipped)$y
         
       } else if (var_spline$type == "rq") {
         
-        x_flat <- seq(var_spline$x_floor, var_spline$x_min, length.out = 50)
-        y_flat <- rep(var_spline$var_floor, 50)
+        x_floor_val   <- if (!is.null(var_spline$x_floor)) var_spline$x_floor else min(base_var$A)
+        var_floor_val <- if (!is.null(var_spline$var_floor)) var_spline$var_floor else max(base_var$var.M)
+        
+        x_flat <- seq(x_floor_val, var_spline$x_min, length.out = 50)
+        y_flat <- rep(var_floor_val, 50)
         
         x_rq <- seq(var_spline$x_min, var_spline$x_max, length.out = 300)
-        y_rq <- exp(as.numeric(stats::predict(
-          var_spline$object,
-          newdata = data.frame(A = x_rq)
-        )))
+        y_rq <- tryCatch(
+          exp(as.numeric(stats::predict(
+            var_spline$object,
+            newdata = data.frame(A = x_rq)
+          ))),
+          error = function(e) rep(NA_real_, length(x_rq))
+        )
         
         x_seq  <- c(x_flat, x_rq)
         y_pred <- c(y_flat, y_rq)
@@ -651,8 +656,11 @@ sample4   Treatment"
       las  = 1
     )
     
-    if (!is.null(y_pred)) {
-      lines(x_seq, y_pred, col = "#EF4444", lwd = 2.5)
+    if (!is.null(x_seq) && !is.null(y_pred)) {
+      valid <- is.finite(x_seq) & is.finite(y_pred)
+      if (any(valid)) {
+        lines(x_seq[valid], y_pred[valid], col = "#EF4444", lwd = 2.5)
+      }
     }
     
     legend("topright",
