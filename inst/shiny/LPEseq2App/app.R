@@ -272,6 +272,33 @@ gene2   50         60         55         70
 gene3   10         15         30         28"
   })
   
+  output$meta_example <- renderText({
+    "=== Supported formats ===
+- CSV  : comma-separated (.csv)
+- TSV  : tab-separated (.tsv, .txt)
+- Other: semicolon (;), pipe (|), or space-separated (.txt)
+  (separator is detected automatically)
+
+=== Required structure ===
+- First column : sample names (must match column names of counts file)
+- Other columns: one column per variable (e.g. group, batch)
+- First row     : header with variable names
+
+=== Example (CSV) ===
+sample,group
+sample1,Control
+sample2,Control
+sample3,Treatment
+sample4,Treatment
+
+=== Example (TSV) ===
+sample    group
+sample1   Control
+sample2   Control
+sample3   Treatment
+sample4   Treatment"
+  })
+  
   counts_data <- reactive({
     req(input$counts_file)
     
