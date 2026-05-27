@@ -614,7 +614,10 @@ sample4   Treatment"
       return()
     }
     
-    x_seq <- seq(min(base_var$A), max(base_var$A), length.out = 300)
+    x_min_plot <- if (!is.null(var_spline)) var_spline$x_min else min(base_var$A)
+    x_max_plot <- if (!is.null(var_spline)) var_spline$x_max else max(base_var$A)
+    
+    x_seq <- seq(x_min_plot, x_max_plot, length.out = 300)
     
     y_pred <- NULL
     
