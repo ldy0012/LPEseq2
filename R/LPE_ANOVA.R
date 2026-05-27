@@ -168,7 +168,6 @@ LPE_ANOVA <- function(object,
 
   var.result <- LPE_ANOVA_var(
     expr = expr,
-    group = group,
     n.bin = n.bin,
     df = df,
     trim.method = trim.method,
@@ -213,7 +212,9 @@ LPE_ANOVA <- function(object,
       newdata = data.frame(A = x_clipped)
     )))
 
-    pred.var[gene.mean < var.result$x_min] <- var.result$var_floor
+    if (!is.null(var.result$var_floor)) {
+      pred.var[gene.mean < var.result$x_min] <- var.result$var_floor
+    }
 
     fitted_rq <- exp(as.numeric(var.result$object$fitted.values))
     positive_y <- fitted_rq[is.finite(fitted_rq) & fitted_rq > 0]

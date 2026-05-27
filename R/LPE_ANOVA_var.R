@@ -531,7 +531,6 @@ LPE_ANOVA_var <- function(expr,
     )
 
     if (inherits(qr_fit, "try-error")) {
-      warning("Quantile regression failed. Falling back to mean_spline.")
 
       sm.spline <- stats::smooth.spline(
         x = base.var$A,
@@ -546,14 +545,11 @@ LPE_ANOVA_var <- function(expr,
       )
 
       result <- list(
-        type      = "rq",
-        object    = qr_fit,
-        x_min     = min(base.var.rq$A),
-        x_max     = max(base.var$A),
-        x_floor   = min(base.var$A),
-        var_floor = max_var
+        type   = "smooth.spline",
+        object = sm.spline,
+        x_min  = min(base.var$A),
+        x_max  = max(base.var$A)
       )
-
     } else {
 
       trend.info <- list(
@@ -564,10 +560,12 @@ LPE_ANOVA_var <- function(expr,
       )
 
       result <- list(
-        type   = "rq",
-        object = qr_fit,
-        x_min  = min(base.var$A),
-        x_max  = max(base.var$A)
+        type      = "rq",
+        object    = qr_fit,
+        x_min     = min(base.var.rq$A),
+        x_max     = max(base.var$A),
+        x_floor   = min(base.var$A),
+        var_floor = max_var
       )
     }
   }
