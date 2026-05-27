@@ -265,6 +265,7 @@ LPE_ANOVA <- function(object,
   attr(res, "trim.info") <- trim.info
   attr(res, "trend.info") <- trend.info
   attr(res, "base.var") <- base.var
+  attr(res, "var.spline") <- var.spline
 
   return(res)
 }

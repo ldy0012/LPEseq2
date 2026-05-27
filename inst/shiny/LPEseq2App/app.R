@@ -602,10 +602,10 @@ sample4   Treatment"
   output$spline_plot <- renderPlot({
     req(analysis_result())
     
-    base_var  <- attr(analysis_result(), "base.var")
+    base_var   <- attr(analysis_result(), "base.var")
     trend_info <- attr(analysis_result(), "trend.info")
+    var_spline <- attr(analysis_result(), "var.spline") 
     
-    # Show a message when standard ANOVA is selected (no spline is estimated)
     if (is.null(base_var) || nrow(base_var) == 0) {
       plot.new()
       text(0.5, 0.5,
@@ -614,19 +614,15 @@ sample4   Treatment"
       return()
     }
     
-    # Build a dense x sequence for a smooth curve
     x_seq <- seq(min(base_var$A), max(base_var$A), length.out = 300)
     
-    # Re-fit the smoothing spline from the stored bin-level variance points
-    df_use <- if (!is.null(trend_info$spline.df)) trend_info$spline.df else 10
-    df_use <- min(df_use, nrow(base_var) - 1)
+    if (!is.null(var_spline)) {
+      x_seq_clipped <- pmin(pmax(x_seq, min(var_spline$x)), max(var_spline$x))
+      y_pred <- stats::predict(var_spline, x_seq_clipped)$y
+    } else {
+      y_pred <- NULL
+    }
     
-    sp_fit <- tryCatch(
-      stats::smooth.spline(base_var$A, base_var$var.M, df = df_use),
-      error = function(e) NULL
-    )
-    
-    # Scatter plot of bin-level variance estimates
     plot(
       base_var$A, base_var$var.M,
       pch  = 16, col = "#3B82F6AA", cex = 0.9,
@@ -637,9 +633,7 @@ sample4   Treatment"
       las  = 1
     )
     
-    # Overlay the fitted spline curve
-    if (!is.null(sp_fit)) {
-      y_pred <- stats::predict(sp_fit, x_seq)$y
+    if (!is.null(y_pred)) {
       lines(x_seq, y_pred, col = "#EF4444", lwd = 2.5)
     }
     
