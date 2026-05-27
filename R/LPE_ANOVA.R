@@ -168,6 +168,7 @@ LPE_ANOVA <- function(object,
 
   var.result <- LPE_ANOVA_var(
     expr = expr,
+    group = group,
     n.bin = n.bin,
     df = df,
     trim.method = trim.method,
