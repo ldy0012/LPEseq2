@@ -23,10 +23,13 @@
 #' @param use_weighted_between Logical. Whether to include weighted between-group
 #'   differences in variance trend estimation.
 #'
-#' @return A \code{smooth.spline} object representing the estimated variance
-#'   trend. Trimming information is stored in \code{attr(object, "trim.info")},
-#'   trend information is stored in \code{attr(object, "trend.info")}, and
-#'   bin-level variance points are stored in \code{attr(object, "base.var")}.
+#' @return A list containing \code{type}, \code{object}, \code{x_min},
+#'   and \code{x_max}. When \code{trend.method = "mean_spline"} or fallback,
+#'   \code{object} is a \code{smooth.spline}. When \code{trend.method =
+#'   "quantile_regression"}, \code{object} is an \code{rq} object.
+#'   Trimming information is stored in \code{attr(result, "trim.info")},
+#'   trend information is stored in \code{attr(result, "trend.info")}, and
+#'   bin-level variance points are stored in \code{attr(result, "base.var")}.
 #'
 #' @export
 LPE_ANOVA_var <- function(expr,
@@ -500,13 +503,17 @@ LPE_ANOVA_var <- function(expr,
       spline.df = df_use
     )
 
+    result <- list(
+      type   = "smooth.spline",
+      object = sm.spline,
+      x_min  = min(base.var$A),
+      x_max  = max(base.var$A)
+    )
+
   } else if (trend.method == "quantile_regression") {
 
     qr_df <- min(df_use, nrow(base.var) - 2)
-
-    if (qr_df < 1) {
-      qr_df <- 1
-    }
+    if (qr_df < 1) qr_df <- 1
 
     qr_data <- base.var
     qr_data$log_var.M <- log(qr_data$var.M)
@@ -521,9 +528,7 @@ LPE_ANOVA_var <- function(expr,
     )
 
     if (inherits(qr_fit, "try-error")) {
-      warning(
-        "Quantile regression failed. Falling back to mean_spline."
-      )
+      warning("Quantile regression failed. Falling back to mean_spline.")
 
       sm.spline <- stats::smooth.spline(
         x = base.var$A,
@@ -537,39 +542,34 @@ LPE_ANOVA_var <- function(expr,
         spline.df = df_use
       )
 
-    } else {
-
-      pred_log_var <- as.numeric(stats::predict(
-        qr_fit,
-        newdata = data.frame(A = base.var$A)
-      ))
-
-      pred_var <- exp(pred_log_var)
-
-      valid_pred <- is.finite(pred_var) & pred_var > 0
-
-      if (!all(valid_pred)) {
-        pred_var[!valid_pred] <- base.var$var.M[!valid_pred]
-      }
-
-      sm.spline <- stats::smooth.spline(
-        x = base.var$A,
-        y = pred_var,
-        df = df_use
+      result <- list(
+        type   = "smooth.spline",
+        object = sm.spline,
+        x_min  = min(base.var$A),
+        x_max  = max(base.var$A)
       )
 
-      trend.info <- list(
+    } else {
+
+      trend.info <- list(          # ← return 전에 먼저 정의
         method = "quantile_regression",
         tau = tau,
         qr.df = qr_df,
         spline.df = df_use
       )
+
+      result <- list(
+        type   = "rq",
+        object = qr_fit,
+        x_min  = min(base.var$A),
+        x_max  = max(base.var$A)
+      )
     }
   }
 
-  attr(sm.spline, "trim.info") <- trim.info
-  attr(sm.spline, "trend.info") <- trend.info
-  attr(sm.spline, "base.var") <- base.var
+  attr(result, "trim.info")  <- trim.info
+  attr(result, "trend.info") <- trend.info
+  attr(result, "base.var")   <- base.var
 
-  return(sm.spline)
+  return(result)
 }

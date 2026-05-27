@@ -60,9 +60,11 @@ standard one-way ANOVA when \code{analysis.method = "auto"}.}
 \value{
 A data.frame containing gene-level test statistics. The selected
 analysis method is stored in \code{attr(result, "analysis.method")}.
-For LPE-ANOVA, trimming information, variance trend information, and
-bin-level variance points are stored in \code{attr(result, "trim.info")},
-\code{attr(result, "trend.info")}, and \code{attr(result, "base.var")}.
+For LPE-ANOVA, trimming information, variance trend information,
+bin-level variance points, and the fitted variance trend object are
+stored in \code{attr(result, "trim.info")},
+\code{attr(result, "trend.info")}, \code{attr(result, "base.var")},
+and \code{attr(result, "var.spline")}.
 }
 \description{
 Performs multi-group differential expression analysis using an

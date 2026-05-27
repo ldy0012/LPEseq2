@@ -40,10 +40,13 @@ values. \code{"none"} performs no outlier trimming.}
 differences in variance trend estimation.}
 }
 \value{
-A \code{smooth.spline} object representing the estimated variance
-trend. Trimming information is stored in \code{attr(object, "trim.info")},
-trend information is stored in \code{attr(object, "trend.info")}, and
-bin-level variance points are stored in \code{attr(object, "base.var")}.
+A list containing \code{type}, \code{object}, \code{x_min},
+and \code{x_max}. When \code{trend.method = "mean_spline"} or fallback,
+\code{object} is a \code{smooth.spline}. When \code{trend.method =
+  "quantile_regression"}, \code{object} is an \code{rq} object.
+Trimming information is stored in \code{attr(result, "trim.info")},
+trend information is stored in \code{attr(result, "trend.info")}, and
+bin-level variance points are stored in \code{attr(result, "base.var")}.
 }
 \description{
 This function estimates an intensity-dependent variance trend using

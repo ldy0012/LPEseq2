@@ -33,9 +33,11 @@
 #'
 #' @return A data.frame containing gene-level test statistics. The selected
 #'   analysis method is stored in \code{attr(result, "analysis.method")}.
-#'   For LPE-ANOVA, trimming information, variance trend information, and
-#'   bin-level variance points are stored in \code{attr(result, "trim.info")},
-#'   \code{attr(result, "trend.info")}, and \code{attr(result, "base.var")}.
+#'   For LPE-ANOVA, trimming information, variance trend information,
+#'   bin-level variance points, and the fitted variance trend object are
+#'   stored in \code{attr(result, "trim.info")},
+#'   \code{attr(result, "trend.info")}, \code{attr(result, "base.var")},
+#'   and \code{attr(result, "var.spline")}.
 #'
 #' @export
 LPE_ANOVA <- function(object,
@@ -143,6 +145,7 @@ LPE_ANOVA <- function(object,
     attr(res, "trim.info") <- NULL
     attr(res, "trend.info") <- NULL
     attr(res, "base.var") <- NULL
+    attr(res, "var.spline") <- NULL
 
     return(res)
   }
@@ -163,7 +166,7 @@ LPE_ANOVA <- function(object,
   # 2. variance trend estimation
   # -----------------------------
 
-  var.spline <- LPE_ANOVA_var(
+  var.result <- LPE_ANOVA_var(
     expr = expr,
     group = group,
     n.bin = n.bin,
@@ -174,24 +177,51 @@ LPE_ANOVA <- function(object,
     use_weighted_between = use_weighted_between
   )
 
-  trim.info <- attr(var.spline, "trim.info")
-  trend.info <- attr(var.spline, "trend.info")
-  base.var <- attr(var.spline, "base.var")
+  trim.info <- attr(var.result, "trim.info")
+  trend.info <- attr(var.result, "trend.info")
+  base.var <- attr(var.result, "base.var")
 
   gene.mean <- rowMeans(expr, na.rm = TRUE)
 
-  pred.var <- fixbounds.predict.smooth.spline(
-    var.spline,
-    gene.mean
-  )$y
 
-  positive_y <- var.spline$y[is.finite(var.spline$y) & var.spline$y > 0]
+  # Predict gene-wise variance from the fitted trend object.
+  # If trend.method = "smooth.spline", use fixbounds.predict.smooth.spline().
+  # If trend.method = "rq", predict on log scale and back-transform with exp().
+  if (var.result$type == "smooth.spline") {
 
-  if (length(positive_y) == 0) {
-    stop("Variance spline produced no positive fitted values")
+    pred.var <- fixbounds.predict.smooth.spline(
+      var.result$object,
+      gene.mean
+    )$y
+
+    positive_y <- var.result$object$y[
+      is.finite(var.result$object$y) & var.result$object$y > 0
+    ]
+
+    if (length(positive_y) == 0) {
+      stop("Variance spline produced no positive fitted values")
+    }
+
+    var_floor <- min(positive_y, na.rm = TRUE)
+
+  } else if (var.result$type == "rq") {
+
+    x_clipped <- pmin(pmax(gene.mean, var.result$x_min), var.result$x_max)
+
+    pred.var <- exp(as.numeric(stats::predict(
+      var.result$object,
+      newdata = data.frame(A = x_clipped)
+    )))
+
+    fitted_rq <- exp(as.numeric(var.result$object$fitted.values))
+    positive_y <- fitted_rq[is.finite(fitted_rq) & fitted_rq > 0]
+
+    if (length(positive_y) == 0) {
+      stop("Variance trend produced no positive fitted values")
+    }
+
+    var_floor <- min(positive_y, na.rm = TRUE)
   }
-
-  var_floor <- min(positive_y, na.rm = TRUE)
 
   pred.var[!is.finite(pred.var)] <- var_floor
   pred.var <- pmax(pred.var, var_floor)
@@ -265,7 +295,7 @@ LPE_ANOVA <- function(object,
   attr(res, "trim.info") <- trim.info
   attr(res, "trend.info") <- trend.info
   attr(res, "base.var") <- base.var
-  attr(res, "var.spline") <- var.spline
+  attr(res, "var.spline") <- var.result
 
   return(res)
 }

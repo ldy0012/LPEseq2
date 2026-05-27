@@ -604,7 +604,7 @@ sample4   Treatment"
     
     base_var   <- attr(analysis_result(), "base.var")
     trend_info <- attr(analysis_result(), "trend.info")
-    var_spline <- attr(analysis_result(), "var.spline") 
+    var_spline <- attr(analysis_result(), "var.spline")
     
     if (is.null(base_var) || nrow(base_var) == 0) {
       plot.new()
@@ -616,11 +616,20 @@ sample4   Treatment"
     
     x_seq <- seq(min(base_var$A), max(base_var$A), length.out = 300)
     
+    y_pred <- NULL
+    
     if (!is.null(var_spline)) {
-      x_seq_clipped <- pmin(pmax(x_seq, min(var_spline$x)), max(var_spline$x))
-      y_pred <- stats::predict(var_spline, x_seq_clipped)$y
-    } else {
-      y_pred <- NULL
+      if (var_spline$type == "smooth.spline") {
+        x_seq_clipped <- pmin(pmax(x_seq, var_spline$x_min), var_spline$x_max)
+        y_pred <- stats::predict(var_spline$object, x_seq_clipped)$y
+        
+      } else if (var_spline$type == "rq") {
+        x_seq_clipped <- pmin(pmax(x_seq, var_spline$x_min), var_spline$x_max)
+        y_pred <- exp(as.numeric(stats::predict(
+          var_spline$object,
+          newdata = data.frame(A = x_seq_clipped)
+        )))
+      }
     }
     
     plot(
@@ -638,7 +647,7 @@ sample4   Treatment"
     }
     
     legend("topright",
-           legend = c("Bin-level variance", "Fitted spline trend"),
+           legend = c("Bin-level variance", "Fitted variance trend"),
            col    = c("#3B82F6AA", "#EF4444"),
            pch    = c(16, NA), lty = c(NA, 1), lwd = c(NA, 2.5),
            bty    = "n")

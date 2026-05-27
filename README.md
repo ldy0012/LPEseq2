@@ -27,12 +27,12 @@ if (!requireNamespace("BiocManager", quietly = TRUE)) {
 }
 
 BiocManager::install(c("edgeR", "DESeq2"))
+```
 
 For upper-quantile regression-based variance trend estimation, install:
 
 ```r
 install.packages("quantreg")
-```
 ```
 
 ## Main functions
@@ -45,7 +45,9 @@ install.packages("quantreg")
 
 ## Input format
 
-The count matrix should contain genes as rows and samples as columns.
+Supported file formats: CSV (comma-separated), TSV (tab-separated), and other delimiter-separated text files (.txt). The separator is detected automatically.
+
+The count matrix should contain genes as rows and samples as columns. The first column must contain gene identifiers.
 
 ```r
 # Example count matrix
@@ -132,6 +134,7 @@ head(res_iqr)
 attr(res_iqr, "trim.info")
 attr(res_iqr, "trend.info")
 attr(res_iqr, "base.var")
+attr(res_iqr, "var.spline")
 ```
 
 ## Analysis methods
@@ -243,7 +246,7 @@ trend.method = "quantile_regression"
 tau = 0.75
 ```
 
-This method estimates an upper-quantile variance trend. It may reduce potential variance underestimation for high-variability genes, but it can also reduce statistical power.
+This method estimates an upper-quantile variance trend. It may reduce potential variance underestimation for high-variability genes, but it can also reduce statistical power. The quantile regression fit is used directly for gene-wise variance prediction without secondary smoothing spline refitting.
 
 The `quantreg` package is required only when `trend.method = "quantile_regression"` is used.
 
@@ -297,6 +300,25 @@ The sample-size threshold used for auto mode can be checked with:
 ```r
 attr(res, "standard.min.group.n")
 ```
+
+### Variance trend object
+
+The fitted variance trend object is stored as:
+
+```r
+attr(res, "var.spline")
+```
+
+This is a list containing the following elements.
+
+| Element | Description |
+|---|---|
+| `type` | `"smooth.spline"` or `"rq"` depending on `trend.method` |
+| `object` | The fitted model object (`smooth.spline` or `rq`) |
+| `x_min` | Lower boundary of the training expression range |
+| `x_max` | Upper boundary of the training expression range |
+
+When `analysis.method = "standard_anova"` is selected, `attr(res, "var.spline")` is `NULL`.
 
 ### Trimming information
 
@@ -352,6 +374,7 @@ attr(res, "base.var")
 ```
 
 This object contains the representative expression-intensity value and the estimated local pooled variance for each bin.
+
 ## Website
 
 Package website: <https://ldy0012.github.io/LPEseq2/>
