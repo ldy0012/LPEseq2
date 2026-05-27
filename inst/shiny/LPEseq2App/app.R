@@ -11,17 +11,9 @@ ui <- fluidPage(
     sidebarPanel(
       h4("1. Upload input files"),
       
-      fileInput(
-        "counts_file",
-        "Upload counts CSV",
-        accept = c(".csv")
-      ),
+      fileInput("counts_file", "Upload counts file", accept = c(".csv", ".tsv", ".txt")),
       
-      fileInput(
-        "meta_file",
-        "Upload metadata CSV",
-        accept = c(".csv")
-      ),
+      fileInput("meta_file", "Upload metadata file", accept = c(".csv", ".tsv", ".txt")),
       
       tags$hr(),
       
@@ -183,9 +175,9 @@ ui <- fluidPage(
           p("Metadata file: samples as rows and variables as columns."),
           p("The column names of the counts file must match the row names of the metadata file."),
           tags$hr(),
-          h4("Example counts CSV"),
+          h4("Counts file format"),
           verbatimTextOutput("counts_example"),
-          h4("Example metadata CSV"),
+          h4("Metadata file format"),
           verbatimTextOutput("meta_example")
         ),
         
@@ -255,28 +247,41 @@ ui <- fluidPage(
 server <- function(input, output, session) {
   
   output$counts_example <- renderText({
-    "gene,sample1,sample2,sample3,sample4
+    "=== Supported formats ===
+- CSV  : comma-separated (.csv)
+- TSV  : tab-separated (.tsv, .txt)
+- Other: semicolon (;), pipe (|), or space-separated (.txt)
+  (separator is detected automatically)
+
+=== Required structure ===
+- First column : gene identifiers (row names)
+- Other columns: one column per sample (integer counts recommended)
+- First row     : header with sample names
+- No missing values allowed
+
+=== Example (CSV) ===
+gene,sample1,sample2,sample3,sample4
 gene1,100,120,80,95
 gene2,50,60,55,70
-gene3,10,15,30,28"
-  })
-  
-  output$meta_example <- renderText({
-    "sample,group
-sample1,Control
-sample2,Control
-sample3,Treatment
-sample4,Treatment"
+gene3,10,15,30,28
+
+=== Example (TSV) ===
+gene    sample1    sample2    sample3    sample4
+gene1   100        120        80         95
+gene2   50         60         55         70
+gene3   10         15         30         28"
   })
   
   counts_data <- reactive({
     req(input$counts_file)
     
-    counts <- read.csv(
+    counts <- data.table::fread(
       input$counts_file$datapath,
-      row.names = 1,
+      data.table = FALSE,
       check.names = FALSE
     )
+    rownames(counts) <- as.character(counts[[1]])
+    counts <- counts[, -1, drop = FALSE]
     
     counts <- as.matrix(counts)
     storage.mode(counts) <- "numeric"
@@ -292,11 +297,14 @@ sample4,Treatment"
   meta_data <- reactive({
     req(input$meta_file)
     
-    read.csv(
+    meta <- data.table::fread(
       input$meta_file$datapath,
-      row.names = 1,
+      data.table = FALSE,
       check.names = FALSE
     )
+    rownames(meta) <- as.character(meta[[1]])
+    meta <- meta[, -1, drop = FALSE]
+    meta
   })
   
   output$counts_preview <- renderDT({
@@ -678,8 +686,8 @@ sample4,Treatment"
   
   output$log_text <- renderPrint({
     cat("LPEseq2 web tool\n")
-    cat("1. Upload counts CSV.\n")
-    cat("2. Upload metadata CSV.\n")
+    cat("1. Upload counts file (CSV, TSV, or TXT).\n")
+    cat("2. Upload metadata file (CSV, TSV, or TXT).\n")
     cat("3. Select group variable.\n")
     cat("4. Click Run Analysis.\n")
     cat("\n")
