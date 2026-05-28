@@ -2,8 +2,12 @@ Package: LPEseq2App
 Title: LPEseq2 Shiny App
 Version: 0.0.1
 Type: Shiny
+Description: Shiny web application for LPEseq2 differential expression analysis.
 Imports:
     shiny,
     DT,
-    data.table
+    data.table,
+    LPEseq2,
+    edgeR,
+    DESeq2
 Encoding: UTF-8

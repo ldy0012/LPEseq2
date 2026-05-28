@@ -16,14 +16,13 @@ Authors@R: c(
         role = "ctb"
     )
     )
-Description: Provides preprocessing and differential expression analysis 
-    functions for RNA-seq count data. The package supports raw count input 
-    checking, low-count gene filtering, library-size, TMM, and DESeq2-based 
-    normalization options. It provides local pooled error-based ANOVA for 
-    small-sample multi-group analysis, conventional gene-wise one-way ANOVA 
-    for larger sample sizes, automatic method selection based on group sample 
-    size, pooled bin-wise IQR outlier trimming, and optional upper-quantile 
-    regression-based variance trend estimation.
+Description: Provides preprocessing and differential expression analysis
+    functions for RNA-seq count data. The package supports raw count input
+    checking, low-count gene filtering, library-size, TMM, and DESeq2-based
+    normalization options. It provides local pooled error-based ANOVA for
+    small-sample multi-group analysis, conventional gene-wise one-way ANOVA
+    for larger sample sizes, automatic method selection based on group sample
+    size, and pooled bin-wise IQR outlier trimming.
 License: MIT + file LICENSE
 URL: https://ldy0012.github.io/LPEseq2/, https://github.com/ldy0012/LPEseq2
 BugReports: https://github.com/ldy0012/LPEseq2/issues
@@ -31,10 +30,10 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Imports:
     stats,
-    utils
-Suggests:
+    utils,
     edgeR,
-    DESeq2,
+    DESeq2
+Suggests:
     shiny,
     DT,
     testthat (>= 3.0.0)
