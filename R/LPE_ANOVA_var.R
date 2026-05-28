@@ -16,17 +16,11 @@
 #'   \code{"iqr"} applies the conventional 1.5*IQR boxplot rule within
 #'   expression-intensity A-bins after pooling within-group and between-group
 #'   values. \code{"none"} performs no outlier trimming.
-#' @param trend.method Method used to fit the variance trend. One of
-#'   \code{"mean_spline"} or \code{"quantile_regression"}.
-#' @param tau Quantile level used when
-#'   \code{trend.method = "quantile_regression"}. Default is \code{0.75}.
 #' @param use_weighted_between Logical. Whether to include weighted between-group
 #'   differences in variance trend estimation.
 #'
 #' @return A list containing \code{type}, \code{object}, \code{x_min},
-#'   and \code{x_max}. When \code{trend.method = "mean_spline"} or fallback,
-#'   \code{object} is a \code{smooth.spline}. When \code{trend.method =
-#'   "quantile_regression"}, \code{object} is an \code{rq} object.
+#'   and \code{x_max}. \code{object} is a \code{smooth.spline} object.
 #'   Trimming information is stored in \code{attr(result, "trim.info")},
 #'   trend information is stored in \code{attr(result, "trend.info")}, and
 #'   bin-level variance points are stored in \code{attr(result, "base.var")}.
@@ -37,12 +31,9 @@ LPE_ANOVA_var <- function(expr,
                           n.bin = 100,
                           df = 10,
                           trim.method = c("iqr", "none"),
-                          trend.method = c("mean_spline", "quantile_regression"),
-                          tau = 0.75,
                           use_weighted_between = FALSE) {
 
   trim.method <- match.arg(trim.method)
-  trend.method <- match.arg(trend.method)
 
   # -----------------------------
   # 1. input check
@@ -74,18 +65,6 @@ LPE_ANOVA_var <- function(expr,
 
   if (!is.logical(use_weighted_between) || length(use_weighted_between) != 1) {
     stop("use_weighted_between must be TRUE or FALSE")
-  }
-
-  if (!is.numeric(tau) || length(tau) != 1 || tau <= 0 || tau >= 1) {
-    stop("tau must be a single numeric value between 0 and 1")
-  }
-
-  if (trend.method == "quantile_regression" &&
-      !requireNamespace("quantreg", quietly = TRUE)) {
-    stop(
-      "Package 'quantreg' is required when trend.method = 'quantile_regression'. ",
-      "Install it with install.packages('quantreg')."
-    )
   }
 
   group <- droplevels(as.factor(group))
@@ -489,86 +468,23 @@ LPE_ANOVA_var <- function(expr,
 
   df_use <- min(df, nrow(base.var) - 1)
 
-  if (trend.method == "mean_spline") {
+  sm.spline <- stats::smooth.spline(
+    x = base.var$A,
+    y = base.var$var.M,
+    df = df_use
+  )
 
-    sm.spline <- stats::smooth.spline(
-      x = base.var$A,
-      y = base.var$var.M,
-      df = df_use
-    )
+  trend.info <- list(
+    method = "mean_spline",
+    spline.df = df_use
+  )
 
-    trend.info <- list(
-      method = "mean_spline",
-      tau = NA_real_,
-      spline.df = df_use
-    )
-
-    result <- list(
-      type   = "smooth.spline",
-      object = sm.spline,
-      x_min  = min(base.var$A),
-      x_max  = max(base.var$A)
-    )
-
-  } else if (trend.method == "quantile_regression") {
-
-    is_floor <- seq_len(nrow(base.var)) < idx_max
-    base.var.rq <- base.var[!is_floor, ]
-
-    qr_df <- min(df_use, nrow(base.var.rq) - 2)
-    if (qr_df < 1) qr_df <- 1
-
-    qr_data <- base.var.rq
-    qr_data$log_var.M <- log(qr_data$var.M)
-
-    qr_fit <- try(
-      quantreg::rq(
-        log_var.M ~ splines::ns(A, df = qr_df),
-        tau = tau,
-        data = qr_data
-      ),
-      silent = TRUE
-    )
-
-    if (inherits(qr_fit, "try-error")) {
-
-      sm.spline <- stats::smooth.spline(
-        x = base.var$A,
-        y = base.var$var.M,
-        df = df_use
-      )
-
-      trend.info <- list(
-        method = "mean_spline_fallback",
-        tau = tau,
-        spline.df = df_use
-      )
-
-      result <- list(
-        type   = "smooth.spline",
-        object = sm.spline,
-        x_min  = min(base.var$A),
-        x_max  = max(base.var$A)
-      )
-    } else {
-
-      trend.info <- list(
-        method = "quantile_regression",
-        tau = tau,
-        qr.df = qr_df,
-        spline.df = df_use
-      )
-
-      result <- list(
-        type      = "rq",
-        object    = qr_fit,
-        x_min     = min(base.var.rq$A),
-        x_max     = max(base.var$A),
-        x_floor   = min(base.var$A),
-        var_floor = max_var
-      )
-    }
-  }
+  result <- list(
+    type   = "smooth.spline",
+    object = sm.spline,
+    x_min  = min(base.var$A),
+    x_max  = max(base.var$A)
+  )
 
   attr(result, "trim.info")  <- trim.info
   attr(result, "trend.info") <- trend.info

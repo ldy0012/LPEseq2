@@ -31,12 +31,10 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Imports:
     stats,
-    utils,
-    splines
+    utils
 Suggests:
     edgeR,
     DESeq2,
-    quantreg,
     shiny,
     DT,
     testthat (>= 3.0.0)

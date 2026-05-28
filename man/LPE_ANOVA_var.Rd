@@ -10,8 +10,6 @@ LPE_ANOVA_var(
   n.bin = 100,
   df = 10,
   trim.method = c("iqr", "none"),
-  trend.method = c("mean_spline", "quantile_regression"),
-  tau = 0.75,
   use_weighted_between = FALSE
 )
 }
@@ -30,20 +28,12 @@ used for variance trend estimation. One of \code{"iqr"} or \code{"none"}.
 expression-intensity A-bins after pooling within-group and between-group
 values. \code{"none"} performs no outlier trimming.}
 
-\item{trend.method}{Method used to fit the variance trend. One of
-\code{"mean_spline"} or \code{"quantile_regression"}.}
-
-\item{tau}{Quantile level used when
-\code{trend.method = "quantile_regression"}. Default is \code{0.75}.}
-
 \item{use_weighted_between}{Logical. Whether to include weighted between-group
 differences in variance trend estimation.}
 }
 \value{
 A list containing \code{type}, \code{object}, \code{x_min},
-and \code{x_max}. When \code{trend.method = "mean_spline"} or fallback,
-\code{object} is a \code{smooth.spline}. When \code{trend.method =
-  "quantile_regression"}, \code{object} is an \code{rq} object.
+and \code{x_max}. \code{object} is a \code{smooth.spline} object.
 Trimming information is stored in \code{attr(result, "trim.info")},
 trend information is stored in \code{attr(result, "trend.info")}, and
 bin-level variance points are stored in \code{attr(result, "base.var")}.

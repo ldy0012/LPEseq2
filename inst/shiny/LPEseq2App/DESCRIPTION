@@ -5,6 +5,5 @@ Type: Shiny
 Imports:
     shiny,
     DT,
-    quantreg,
     data.table
 Encoding: UTF-8

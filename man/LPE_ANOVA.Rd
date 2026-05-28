@@ -9,8 +9,6 @@ LPE_ANOVA(
   n.bin = 100,
   df = 10,
   trim.method = c("iqr", "none"),
-  trend.method = c("mean_spline", "quantile_regression"),
-  tau = 0.75,
   use_weighted_between = FALSE,
   analysis.method = c("LPE", "standard_anova", "auto"),
   standard.min.group.n = 5,
@@ -30,15 +28,6 @@ used for variance trend estimation. One of \code{"iqr"} or \code{"none"}.
 \code{"iqr"} applies the conventional 1.5*IQR boxplot rule within
 expression-intensity A-bins after pooling within-group and between-group
 values. \code{"none"} performs no outlier trimming.}
-
-\item{trend.method}{Method used to fit the variance trend. One of
-\code{"mean_spline"} or \code{"quantile_regression"}.
-\code{"mean_spline"} fits a smoothing spline to bin-level variance
-estimates. \code{"quantile_regression"} fits an upper-quantile
-regression trend to reduce potential variance underestimation.}
-
-\item{tau}{Quantile level used when
-\code{trend.method = "quantile_regression"}. Default is \code{0.75}.}
 
 \item{use_weighted_between}{Logical. Whether to include weighted between-group
 differences in variance trend estimation.}

@@ -11,13 +11,6 @@
 #'   \code{"iqr"} applies the conventional 1.5*IQR boxplot rule within
 #'   expression-intensity A-bins after pooling within-group and between-group
 #'   values. \code{"none"} performs no outlier trimming.
-#' @param trend.method Method used to fit the variance trend. One of
-#'   \code{"mean_spline"} or \code{"quantile_regression"}.
-#'   \code{"mean_spline"} fits a smoothing spline to bin-level variance
-#'   estimates. \code{"quantile_regression"} fits an upper-quantile
-#'   regression trend to reduce potential variance underestimation.
-#' @param tau Quantile level used when
-#'   \code{trend.method = "quantile_regression"}. Default is \code{0.75}.
 #' @param use_weighted_between Logical. Whether to include weighted between-group
 #'   differences in variance trend estimation.
 #' @param analysis.method Analysis method. One of \code{"LPE"},
@@ -44,8 +37,6 @@ LPE_ANOVA <- function(object,
                       n.bin = 100,
                       df = 10,
                       trim.method = c("iqr", "none"),
-                      trend.method = c("mean_spline", "quantile_regression"),
-                      tau = 0.75,
                       use_weighted_between = FALSE,
                       analysis.method = c("LPE", "standard_anova", "auto"),
                       standard.min.group.n = 5,
@@ -53,7 +44,6 @@ LPE_ANOVA <- function(object,
                       p.method = c("chisq", "F_inf")) {
 
   trim.method <- match.arg(trim.method)
-  trend.method <- match.arg(trend.method)
   analysis.method <- match.arg(analysis.method)
   p.method <- match.arg(p.method)
 
@@ -100,10 +90,6 @@ LPE_ANOVA <- function(object,
       length(standard.min.group.n) != 1 ||
       standard.min.group.n < 2) {
     stop("standard.min.group.n must be a single numeric value >= 2")
-  }
-
-  if (!is.numeric(tau) || length(tau) != 1 || tau <= 0 || tau >= 1) {
-    stop("tau must be a single numeric value between 0 and 1")
   }
 
   k <- nlevels(group)
@@ -154,14 +140,6 @@ LPE_ANOVA <- function(object,
     cat("Running LPE-ANOVA\n")
   }
 
-  if (trend.method == "quantile_regression" &&
-      !requireNamespace("quantreg", quietly = TRUE)) {
-    stop(
-      "Package 'quantreg' is required when trend.method = 'quantile_regression'. ",
-      "Install it with install.packages('quantreg')."
-    )
-  }
-
   # -----------------------------
   # 2. variance trend estimation
   # -----------------------------
@@ -172,8 +150,6 @@ LPE_ANOVA <- function(object,
     n.bin = n.bin,
     df = df,
     trim.method = trim.method,
-    trend.method = trend.method,
-    tau = tau,
     use_weighted_between = use_weighted_between
   )
 
@@ -184,48 +160,20 @@ LPE_ANOVA <- function(object,
   gene.mean <- rowMeans(expr, na.rm = TRUE)
 
 
-  # Predict gene-wise variance from the fitted trend object.
-  # If trend.method = "smooth.spline", use fixbounds.predict.smooth.spline().
-  # If trend.method = "rq", predict on log scale and back-transform with exp().
-  if (var.result$type == "smooth.spline") {
+  pred.var <- fixbounds.predict.smooth.spline(
+    var.result$object,
+    gene.mean
+  )$y
 
-    pred.var <- fixbounds.predict.smooth.spline(
-      var.result$object,
-      gene.mean
-    )$y
+  positive_y <- var.result$object$y[
+    is.finite(var.result$object$y) & var.result$object$y > 0
+  ]
 
-    positive_y <- var.result$object$y[
-      is.finite(var.result$object$y) & var.result$object$y > 0
-    ]
-
-    if (length(positive_y) == 0) {
-      stop("Variance spline produced no positive fitted values")
-    }
-
-    var_floor <- min(positive_y, na.rm = TRUE)
-
-  } else if (var.result$type == "rq") {
-
-    x_clipped <- pmin(pmax(gene.mean, var.result$x_min), var.result$x_max)
-
-    pred.var <- exp(as.numeric(stats::predict(
-      var.result$object,
-      newdata = data.frame(A = x_clipped)
-    )))
-
-    if (!is.null(var.result$var_floor)) {
-      pred.var[gene.mean < var.result$x_min] <- var.result$var_floor
-    }
-
-    fitted_rq <- exp(as.numeric(var.result$object$fitted.values))
-    positive_y <- fitted_rq[is.finite(fitted_rq) & fitted_rq > 0]
-
-    if (length(positive_y) == 0) {
-      stop("Variance trend produced no positive fitted values")
-    }
-
-    var_floor <- min(positive_y, na.rm = TRUE)
+  if (length(positive_y) == 0) {
+    stop("Variance spline produced no positive fitted values")
   }
+
+  var_floor <- min(positive_y, na.rm = TRUE)
   pred.var[!is.finite(pred.var)] <- var_floor
   pred.var <- pmax(pred.var, var_floor)
 

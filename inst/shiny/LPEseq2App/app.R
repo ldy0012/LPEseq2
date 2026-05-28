@@ -93,28 +93,6 @@ ui <- fluidPage(
         ),
         
         selectInput(
-          "trend_method",
-          "Variance trend method",
-          choices = c(
-            "Mean smoothing spline" = "mean_spline",
-            "Upper-quantile regression" = "quantile_regression"
-          ),
-          selected = "mean_spline"
-        ),
-        
-        conditionalPanel(
-          condition = "input.trend_method == 'quantile_regression'",
-          numericInput(
-            "tau",
-            "Quantile level",
-            value = 0.75,
-            min = 0.5,
-            max = 0.99,
-            step = 0.01
-          )
-        ),
-        
-        selectInput(
           "trim_method",
           "Pairwise outlier trimming method",
           choices = c(
@@ -405,8 +383,6 @@ sample4   Treatment"
     lpe_n_bin <- if (is.null(input$n_bin)) 100 else input$n_bin
     lpe_df <- if (is.null(input$df)) 10 else input$df
     lpe_trim_method <- if (is.null(input$trim_method)) "iqr" else input$trim_method
-    lpe_trend_method <- if (is.null(input$trend_method)) "mean_spline" else input$trend_method
-    lpe_tau <- if (is.null(input$tau)) 0.75 else input$tau
     lpe_use_weighted_between <- if (is.null(input$use_weighted_between)) FALSE else input$use_weighted_between
     lpe_p_method <- if (is.null(input$p_method)) "chisq" else input$p_method
     auto_min_group_n <- if (is.null(input$standard_min_group_n)) 5 else input$standard_min_group_n
@@ -416,8 +392,6 @@ sample4   Treatment"
       n.bin = lpe_n_bin,
       df = lpe_df,
       trim.method = lpe_trim_method,
-      trend.method = lpe_trend_method,
-      tau = lpe_tau,
       use_weighted_between = lpe_use_weighted_between,
       analysis.method = input$analysis_method,
       standard.min.group.n = auto_min_group_n,
@@ -473,12 +447,6 @@ sample4   Treatment"
       cat("- If every group has at least standard.min.group.n samples: standard one-way ANOVA\n")
       cat("- Otherwise: LPE-ANOVA\n")
     }
-    if (!is.null(trend_info)) {
-      cat("\nVariance trend method:", trend_info$method, "\n")
-      if (!is.null(trend_info$tau) && is.finite(trend_info$tau)) {
-        cat("Quantile level tau:", trend_info$tau, "\n")
-      }
-    }
   })
   
   output$trend_info <- renderPrint({
@@ -493,14 +461,6 @@ sample4   Treatment"
     }
     
     cat("Variance trend method:", info$method, "\n")
-    
-    if (!is.null(info$tau) && is.finite(info$tau)) {
-      cat("Quantile level tau:", info$tau, "\n")
-    }
-    
-    if (!is.null(info$qr.df)) {
-      cat("Quantile regression spline df:", info$qr.df, "\n")
-    }
     
     if (!is.null(info$spline.df)) {
       cat("Smoothing spline df:", info$spline.df, "\n")
@@ -617,33 +577,10 @@ sample4   Treatment"
     x_seq  <- NULL
     y_pred <- NULL
     
-    if (!is.null(var_spline)) {
-      
-      if (var_spline$type == "smooth.spline") {
-        x_seq <- seq(min(base_var$A), max(base_var$A), length.out = 300)
-        x_seq_clipped <- pmin(pmax(x_seq, var_spline$x_min), var_spline$x_max)
-        y_pred <- stats::predict(var_spline$object, x_seq_clipped)$y
-        
-      } else if (var_spline$type == "rq") {
-        
-        x_floor_val   <- if (!is.null(var_spline$x_floor)) var_spline$x_floor else min(base_var$A)
-        var_floor_val <- if (!is.null(var_spline$var_floor)) var_spline$var_floor else max(base_var$var.M)
-        
-        x_flat <- seq(x_floor_val, var_spline$x_min, length.out = 50)
-        y_flat <- rep(var_floor_val, 50)
-        
-        x_rq <- seq(var_spline$x_min, var_spline$x_max, length.out = 300)
-        y_rq <- tryCatch(
-          exp(as.numeric(stats::predict(
-            var_spline$object,
-            newdata = data.frame(A = x_rq)
-          ))),
-          error = function(e) rep(NA_real_, length(x_rq))
-        )
-        
-        x_seq  <- c(x_flat, x_rq)
-        y_pred <- c(y_flat, y_rq)
-      }
+    if (!is.null(var_spline) && var_spline$type == "smooth.spline") {
+      x_seq <- seq(min(base_var$A), max(base_var$A), length.out = 300)
+      x_seq_clipped <- pmin(pmax(x_seq, var_spline$x_min), var_spline$x_max)
+      y_pred <- stats::predict(var_spline$object, x_seq_clipped)$y
     }
     
     plot(
@@ -748,13 +685,6 @@ sample4   Treatment"
     if (input$analysis_method != "standard_anova") {
       cat("n.bin: ", input$n_bin, "\n")
       cat("spline df: ", input$df, "\n")
-      cat("trend method: ", input$trend_method, "\n")
-      
-      if (!is.null(input$trend_method) &&
-          input$trend_method == "quantile_regression") {
-        cat("tau: ", input$tau, "\n")
-      }
-      
       cat("use_weighted_between: ", input$use_weighted_between, "\n")
       cat("trimming method: ", input$trim_method, "\n")
       cat("p-value method: ", input$p_method, "\n")
