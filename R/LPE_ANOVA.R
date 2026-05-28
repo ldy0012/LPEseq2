@@ -159,7 +159,6 @@ LPE_ANOVA <- function(object,
 
   gene.mean <- rowMeans(expr, na.rm = TRUE)
 
-
   pred.var <- fixbounds.predict.smooth.spline(
     var.result$object,
     gene.mean

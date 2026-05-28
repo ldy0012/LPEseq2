@@ -1,3 +1,5 @@
+#' @keywords internal
+
 fixbounds.predict.smooth.spline <- function(object, x) {
 
   if (!inherits(object, "smooth.spline")) {
