@@ -16,8 +16,6 @@ LPE_ANOVA_var(
   n.bin = 100,
   df = 10,
   trim.method = c("iqr", "none"),
-  trend.method = c("mean_spline", "quantile_regression"),
-  tau = 0.75,
   use_weighted_between = FALSE
 )
 ```
@@ -48,16 +46,6 @@ LPE_ANOVA_var(
   after pooling within-group and between-group values. `"none"` performs
   no outlier trimming.
 
-- trend.method:
-
-  Method used to fit the variance trend. One of `"mean_spline"` or
-  `"quantile_regression"`.
-
-- tau:
-
-  Quantile level used when `trend.method = "quantile_regression"`.
-  Default is `0.75`.
-
 - use_weighted_between:
 
   Logical. Whether to include weighted between-group differences in
@@ -65,10 +53,8 @@ LPE_ANOVA_var(
 
 ## Value
 
-A list containing `type`, `object`, `x_min`, and `x_max`. When
-`trend.method = "mean_spline"` or fallback, `object` is a
-`smooth.spline`. When `trend.method = "quantile_regression"`, `object`
-is an `rq` object. Trimming information is stored in
+A list containing `type`, `object`, `x_min`, and `x_max`. `object` is a
+`smooth.spline` object. Trimming information is stored in
 `attr(result, "trim.info")`, trend information is stored in
 `attr(result, "trend.info")`, and bin-level variance points are stored
 in `attr(result, "base.var")`.

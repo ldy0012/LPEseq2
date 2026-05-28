@@ -46,8 +46,6 @@ intensity-dependent local pooled error variance trend.</p>
 <span>  n.bin <span class="op">=</span> <span class="fl">100</span>,</span>
 <span>  df <span class="op">=</span> <span class="fl">10</span>,</span>
 <span>  trim.method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"iqr"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
-<span>  trend.method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"mean_spline"</span>, <span class="st">"quantile_regression"</span><span class="op">)</span>,</span>
-<span>  tau <span class="op">=</span> <span class="fl">0.75</span>,</span>
 <span>  use_weighted_between <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  analysis.method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"LPE"</span>, <span class="st">"standard_anova"</span>, <span class="st">"auto"</span><span class="op">)</span>,</span>
 <span>  standard.min.group.n <span class="op">=</span> <span class="fl">5</span>,</span>
@@ -78,19 +76,6 @@ used for variance trend estimation. One of <code>"iqr"</code> or <code>"none"</c
 <code>"iqr"</code> applies the conventional 1.5*IQR boxplot rule within
 expression-intensity A-bins after pooling within-group and between-group
 values. <code>"none"</code> performs no outlier trimming.</p></dd>
-
-
-<dt id="arg-trend-method">trend.method<a class="anchor" aria-label="anchor" href="#arg-trend-method"></a></dt>
-<dd><p>Method used to fit the variance trend. One of
-<code>"mean_spline"</code> or <code>"quantile_regression"</code>.
-<code>"mean_spline"</code> fits a smoothing spline to bin-level variance
-estimates. <code>"quantile_regression"</code> fits an upper-quantile
-regression trend to reduce potential variance underestimation.</p></dd>
-
-
-<dt id="arg-tau">tau<a class="anchor" aria-label="anchor" href="#arg-tau"></a></dt>
-<dd><p>Quantile level used when
-<code>trend.method = "quantile_regression"</code>. Default is <code>0.75</code>.</p></dd>
 
 
 <dt id="arg-use-weighted-between">use_weighted_between<a class="anchor" aria-label="anchor" href="#arg-use-weighted-between"></a></dt>

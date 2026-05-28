@@ -39,13 +39,6 @@ if (!requireNamespace("BiocManager", quietly = TRUE)) {
 BiocManager::install(c("edgeR", "DESeq2"))
 ```
 
-For upper-quantile regression-based variance trend estimation, install:
-
-``` r
-
-install.packages("quantreg")
-```
-
 ## Main functions
 
 | Function | Description |
@@ -148,7 +141,6 @@ res_iqr <- LPE_ANOVA(
   n.bin = 100,
   df = 10,
   trim.method = "iqr",
-  trend.method = "mean_spline",
   use_weighted_between = TRUE,
   p.method = "chisq",
   verbose = FALSE
@@ -258,48 +250,6 @@ scale used for local pooled variance estimation.
 The `none` method does not remove pairwise values before variance trend
 estimation.
 
-## Variance trend methods
-
-LPEseq2 supports two methods for estimating the intensity-dependent
-variance trend.
-
-| Method | Description |
-|----|----|
-| `mean_spline` | Fits a smoothing spline to bin-level local pooled variance estimates |
-| `quantile_regression` | Fits an upper-quantile regression trend to reduce potential variance underestimation |
-
-### Mean smoothing spline
-
-The default method is:
-
-``` r
-
-trend.method = "mean_spline"
-```
-
-This method estimates the average local pooled variance trend across
-expression-intensity bins.
-
-### Quantile regression
-
-The quantile regression method can be used when a more conservative
-variance trend is desired.
-
-``` r
-
-trend.method = "quantile_regression"
-tau = 0.75
-```
-
-This method estimates an upper-quantile variance trend. It may reduce
-potential variance underestimation for high-variability genes, but it
-can also reduce statistical power. The quantile regression fit is used
-directly for gene-wise variance prediction without secondary smoothing
-spline refitting.
-
-The `quantreg` package is required only when
-`trend.method = "quantile_regression"` is used.
-
 ## Output
 
 [`LPE_ANOVA()`](https://ldy0012.github.io/LPEseq2/reference/LPE_ANOVA.md)
@@ -370,12 +320,12 @@ attr(res, "var.spline")
 
 This is a list containing the following elements.
 
-| Element  | Description                                             |
-|----------|---------------------------------------------------------|
-| `type`   | `"smooth.spline"` or `"rq"` depending on `trend.method` |
-| `object` | The fitted model object (`smooth.spline` or `rq`)       |
-| `x_min`  | Lower boundary of the training expression range         |
-| `x_max`  | Upper boundary of the training expression range         |
+| Element  | Description                                     |
+|----------|-------------------------------------------------|
+| `type`   | `"smooth.spline"`                               |
+| `object` | The fitted `smooth.spline` object               |
+| `x_min`  | Lower boundary of the training expression range |
+| `x_max`  | Upper boundary of the training expression range |
 
 When `analysis.method = "standard_anova"` is selected,
 `attr(res, "var.spline")` is `NULL`.
@@ -433,9 +383,8 @@ attribute of the result object.
 attr(res, "trend.info")
 ```
 
-This includes the variance trend fitting method, the quantile level used
-for quantile regression, and the degrees of freedom used for spline
-fitting when available.
+This includes the variance trend fitting method and the degrees of
+freedom used for spline fitting.
 
 The bin-level variance points used for trend fitting can be checked
 with:
