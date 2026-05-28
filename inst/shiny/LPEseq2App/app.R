@@ -369,15 +369,20 @@ sample4   Treatment"
     
     design_formula <- stats::reformulate(input$group_var)
 
-    prep <- LPE_preprocess(
-      counts = counts,
-      colData = meta,
-      design = design_formula,
-      normalize.method = input$normalize_method,
-      log.transform = input$log_transform,
-      min.count = input$min_count,
-      prior.count = input$prior_count,
-      verbose = FALSE
+    prep <- tryCatch(
+      LPE_preprocess(
+        counts = counts,
+        colData = meta,
+        design = design_formula,
+        normalize.method = input$normalize_method,
+        log.transform = input$log_transform,
+        min.count = input$min_count,
+        prior.count = input$prior_count,
+        verbose = FALSE
+      ),
+      error = function(e) {
+        validate(need(FALSE, paste("Preprocessing failed:", conditionMessage(e))))
+      }
     )
     
     lpe_n_bin <- if (is.null(input$n_bin)) 100 else input$n_bin
