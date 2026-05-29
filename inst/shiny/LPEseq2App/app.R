@@ -40,13 +40,13 @@ ui <- fluidPage(
 
       fileInput("counts_file", "Upload counts file", accept = c(".csv", ".tsv", ".txt")),
       checkboxInput(
-        "has_gene_id",
-        "First column is gene identifier",
-        value = TRUE
+        "no_gene_id",
+        "First column is NOT a gene identifier (auto-assign gene IDs)",
+        value = FALSE
       ),
       helpText(
-        "Check if the first column contains gene IDs (e.g. gene names, Ensembl IDs, Entrez IDs). ",
-        "If unchecked, gene identifiers will be automatically assigned as gene_1, gene_2, ..."
+        "Check this if your file has no gene identifier column. ",
+        "Gene identifiers will be automatically assigned as gene_1, gene_2, ..."
       ),
 
       uiOutput("gene_id_warning_ui"),
@@ -197,7 +197,7 @@ ui <- fluidPage(
           p("Counts file: genes as rows and samples as columns."),
           p("Metadata file: samples as rows and variables as columns."),
           p("The column names of the counts file must match the row names of the metadata file."),
-          p("If the first column is not a gene identifier, uncheck 'First column is gene identifier' to assign gene IDs automatically."),
+          p("If the first column is not a gene identifier, check 'First column is NOT a gene identifier' to assign gene IDs automatically."),
           tags$hr(),
           h4("Counts file format"),
           verbatimTextOutput("counts_example"),
@@ -457,11 +457,7 @@ sample4   Treatment"
       check.names = FALSE
     )
 
-    if (isTRUE(input$has_gene_id)) {
-      gene_id_warning(NULL)
-      rownames(counts_raw) <- as.character(counts_raw[[1]])
-      counts <- as.matrix(counts_raw[, -1, drop = FALSE])
-    } else {
+    if (isTRUE(input$no_gene_id)) {
       gene_id_warning(
         paste0(
           "Gene identifiers were automatically assigned as gene_1, gene_2, ... ",
@@ -470,6 +466,10 @@ sample4   Treatment"
       )
       counts <- as.matrix(counts_raw)
       rownames(counts) <- paste0("gene_", seq_len(nrow(counts_raw)))
+    } else {
+      gene_id_warning(NULL)
+      rownames(counts_raw) <- as.character(counts_raw[[1]])
+      counts <- as.matrix(counts_raw[, -1, drop = FALSE])
     }
 
     storage.mode(counts) <- "numeric"
@@ -791,19 +791,19 @@ sample4   Treatment"
   # ###
 
   output$log_text <- renderPrint({
-    cat("1. Upload counts file (CSV, TSV, or TXT).\n")
-    cat("2. Upload metadata file (CSV, TSV, or TXT).\n")
+    cat("LPEseq2 web tool\n")
+    cat("1. Upload counts file.\n")
+    cat("2. Upload metadata file.\n")
+    cat("   Note: Counts columns must match metadata row names.\n")  # ← 여기로
     cat("3. Select group variable.\n")
     cat("4. Click Run Analysis.\n")
     cat("\n")
     cat("=== Settings ===\n")
-    cat("gene ID column:", if (isTRUE(input$has_gene_id)) "yes (first column)" else "no (auto-assigned)", "\n")
-    cat("Counts columns must match metadata row names.\n")
+    cat("gene ID column:", if (!isTRUE(input$no_gene_id)) "yes (first column)" else "no (auto-assigned)", "\n")
     cat("analysis method:", input$analysis_method, "\n")
     cat("normalize method:", input$normalize_method, "\n")
     cat("log transform:", input$log_transform, "\n")
     cat("min count:", input$min_count, "\n")
-    cat("analysis method:", input$analysis_method, "\n")
 
     if (input$analysis_method == "auto") {
       cat("standard.min.group.n: ", input$standard_min_group_n, "\n")
