@@ -5,6 +5,33 @@ library(DT)
 library(LPEseq2)
 
 ui <- fluidPage(
+  tags$head(
+    tags$style(HTML("
+      .run-status-running {
+        color: #2563EB;
+        font-weight: bold;
+        padding: 8px 0;
+      }
+      .run-status-done {
+        color: #16A34A;
+        font-weight: bold;
+        padding: 8px 0;
+      }
+      .run-status-error {
+        color: #DC2626;
+        font-weight: bold;
+        padding: 8px 0;
+      }
+      @keyframes blink {
+        0%  { opacity: 1; }
+        50% { opacity: 0.3; }
+        100%{ opacity: 1; }
+      }
+      .blinking {
+        animation: blink 1s infinite;
+      }
+    "))
+  ),
   titlePanel("LPEseq2: Local Pooled Error-Based ANOVA"),
 
   sidebarLayout(
@@ -12,6 +39,17 @@ ui <- fluidPage(
       h4("1. Upload input files"),
 
       fileInput("counts_file", "Upload counts file", accept = c(".csv", ".tsv", ".txt")),
+      checkboxInput(
+        "has_gene_id",
+        "First column is gene identifier",
+        value = TRUE
+      ),
+      helpText(
+        "Check if the first column contains gene IDs (e.g. gene names, Ensembl IDs, Entrez IDs). ",
+        "If unchecked, gene identifiers will be automatically assigned as gene_1, gene_2, ..."
+      ),
+
+      uiOutput("gene_id_warning_ui"),
 
       fileInput("meta_file", "Upload metadata file", accept = c(".csv", ".tsv", ".txt")),
 
@@ -138,6 +176,13 @@ ui <- fluidPage(
       br(),
       br(),
 
+      conditionalPanel(
+        condition = "input.run > 0",
+        uiOutput("run_status")
+      ),
+
+      br(),
+
       downloadButton(
         "download_results",
         "Download results"
@@ -152,6 +197,7 @@ ui <- fluidPage(
           p("Counts file: genes as rows and samples as columns."),
           p("Metadata file: samples as rows and variables as columns."),
           p("The column names of the counts file must match the row names of the metadata file."),
+          p("If the first column is not a gene identifier, uncheck 'First column is gene identifier' to assign gene IDs automatically."),
           tags$hr(),
           h4("Counts file format"),
           verbatimTextOutput("counts_example"),
@@ -224,6 +270,131 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
 
+  run_state <- reactiveVal("idle")  # idle / running / done / error
+  gene_id_warning <- reactiveVal(NULL)
+
+  observeEvent(input$run, {
+    run_state("running")
+  })
+
+  output$run_status <- renderUI({
+    state <- run_state()
+    if (state == "idle") {
+      return(NULL)
+    } else if (state == "running") {
+      div(
+        class = "run-status-running blinking",
+        icon("spinner"), " Running analysis... Please wait."
+      )
+    } else if (state == "done") {
+      div(
+        class = "run-status-done",
+        icon("check-circle"), " Analysis complete."
+      )
+    } else if (state == "error") {
+      div(
+        class = "run-status-error",
+        icon("exclamation-circle"), " An error occurred."
+      )
+    }
+  })
+
+  output$gene_id_warning_ui <- renderUI({
+    msg <- gene_id_warning()
+    if (is.null(msg)) return(NULL)
+    div(
+      style = paste(
+        "background-color: #FEF9C3;",
+        "border-left: 4px solid #EAB308;",
+        "padding: 8px 12px;",
+        "margin-top: 4px;",
+        "font-size: 0.9em;"
+      ),
+      icon("triangle-exclamation"),
+      strong(" Note: "),
+      msg
+    )
+  })
+
+  analysis_result <- eventReactive(input$run, {
+
+    result <- tryCatch({
+
+      counts <- counts_data()
+      meta   <- meta_data()
+
+      validate(
+        need(!is.null(rownames(meta)), "Metadata must have sample names as row names."),
+        need(!is.null(colnames(counts)), "Counts must have sample names as column names."),
+        need(!anyDuplicated(colnames(counts)), "Counts sample names must be unique."),
+        need(!anyDuplicated(rownames(meta)), "Metadata sample names must be unique."),
+        need(
+          setequal(colnames(counts), rownames(meta)),
+          "Sample names do not match between counts columns and metadata row names."
+        ),
+        need(input$group_var %in% colnames(meta), "Selected group variable is not in metadata.")
+      )
+
+      meta <- meta[colnames(counts), , drop = FALSE]
+
+      validate(
+        need(!anyNA(meta[[input$group_var]]), "Selected group variable contains NA values."),
+        need(
+          length(unique(meta[[input$group_var]])) >= 2,
+          "At least two groups are required for analysis."
+        )
+      )
+
+      design_formula <- stats::reformulate(input$group_var)
+
+      prep <- tryCatch(
+        LPE_preprocess(
+          counts           = counts,
+          colData          = meta,
+          design           = design_formula,
+          normalize.method = input$normalize_method,
+          log.transform    = input$log_transform,
+          min.count        = input$min_count,
+          prior.count      = input$prior_count,
+          verbose          = FALSE
+        ),
+        error = function(e) {
+          stop(paste("Preprocessing failed:", conditionMessage(e)))
+        }
+      )
+
+      lpe_n_bin              <- if (is.null(input$n_bin)) 100 else input$n_bin
+      lpe_df                 <- if (is.null(input$df)) 10 else input$df
+      lpe_trim_method        <- if (is.null(input$trim_method)) "iqr" else input$trim_method
+      lpe_use_weighted_between <- if (is.null(input$use_weighted_between)) FALSE else input$use_weighted_between
+      lpe_p_method           <- if (is.null(input$p_method)) "chisq" else input$p_method
+      auto_min_group_n       <- if (is.null(input$standard_min_group_n)) 5 else input$standard_min_group_n
+
+      res <- LPE_ANOVA(
+        object             = prep,
+        n.bin              = lpe_n_bin,
+        df                 = lpe_df,
+        trim.method        = lpe_trim_method,
+        use_weighted_between = lpe_use_weighted_between,
+        analysis.method    = input$analysis_method,
+        standard.min.group.n = auto_min_group_n,
+        verbose            = FALSE,
+        p.method           = lpe_p_method
+      )
+
+      run_state("done")
+      res
+    }, error = function(e) {
+      if (inherits(e, "shiny.silent.error")) {
+        run_state("idle")
+      } else {
+        run_state("error")
+      }
+      stop(e)
+    })
+    result
+  })
+
   output$counts_example <- renderText({
     "=== Supported formats ===
 - CSV  : comma-separated (.csv)
@@ -280,15 +451,27 @@ sample4   Treatment"
   counts_data <- reactive({
     req(input$counts_file)
 
-    counts <- data.table::fread(
+    counts_raw <- data.table::fread(
       input$counts_file$datapath,
       data.table = FALSE,
       check.names = FALSE
     )
-    rownames(counts) <- as.character(counts[[1]])
-    counts <- counts[, -1, drop = FALSE]
 
-    counts <- as.matrix(counts)
+    if (isTRUE(input$has_gene_id)) {
+      gene_id_warning(NULL)
+      rownames(counts_raw) <- as.character(counts_raw[[1]])
+      counts <- as.matrix(counts_raw[, -1, drop = FALSE])
+    } else {
+      gene_id_warning(
+        paste0(
+          "Gene identifiers were automatically assigned as gene_1, gene_2, ... ",
+          "(", nrow(counts_raw), " genes total)"
+        )
+      )
+      counts <- as.matrix(counts_raw)
+      rownames(counts) <- paste0("gene_", seq_len(nrow(counts_raw)))
+    }
+
     storage.mode(counts) <- "numeric"
 
     validate(
@@ -339,72 +522,6 @@ sample4   Treatment"
       choices = colnames(meta_data()),
       selected = colnames(meta_data())[1]
     )
-  })
-
-  analysis_result <- eventReactive(input$run, {
-    counts <- counts_data()
-    meta <- meta_data()
-
-    validate(
-      need(!is.null(rownames(meta)), "Metadata must have sample names as row names."),
-      need(!is.null(colnames(counts)), "Counts must have sample names as column names."),
-      need(!anyDuplicated(colnames(counts)), "Counts sample names must be unique."),
-      need(!anyDuplicated(rownames(meta)), "Metadata sample names must be unique."),
-      need(
-        setequal(colnames(counts), rownames(meta)),
-        "Sample names do not match between counts columns and metadata row names."
-      ),
-      need(input$group_var %in% colnames(meta), "Selected group variable is not in metadata.")
-    )
-
-    meta <- meta[colnames(counts), , drop = FALSE]
-
-    validate(
-      need(!anyNA(meta[[input$group_var]]), "Selected group variable contains NA values."),
-      need(
-        length(unique(meta[[input$group_var]])) >= 2,
-        "At least two groups are required for analysis."
-      )
-    )
-
-    design_formula <- stats::reformulate(input$group_var)
-
-    prep <- tryCatch(
-      LPE_preprocess(
-        counts = counts,
-        colData = meta,
-        design = design_formula,
-        normalize.method = input$normalize_method,
-        log.transform = input$log_transform,
-        min.count = input$min_count,
-        prior.count = input$prior_count,
-        verbose = FALSE
-      ),
-      error = function(e) {
-        validate(need(FALSE, paste("Preprocessing failed:", conditionMessage(e))))
-      }
-    )
-
-    lpe_n_bin <- if (is.null(input$n_bin)) 100 else input$n_bin
-    lpe_df <- if (is.null(input$df)) 10 else input$df
-    lpe_trim_method <- if (is.null(input$trim_method)) "iqr" else input$trim_method
-    lpe_use_weighted_between <- if (is.null(input$use_weighted_between)) FALSE else input$use_weighted_between
-    lpe_p_method <- if (is.null(input$p_method)) "chisq" else input$p_method
-    auto_min_group_n <- if (is.null(input$standard_min_group_n)) 5 else input$standard_min_group_n
-
-    res <- LPE_ANOVA(
-      object = prep,
-      n.bin = lpe_n_bin,
-      df = lpe_df,
-      trim.method = lpe_trim_method,
-      use_weighted_between = lpe_use_weighted_between,
-      analysis.method = input$analysis_method,
-      standard.min.group.n = auto_min_group_n,
-      verbose = FALSE,
-      p.method = lpe_p_method
-    )
-
-    res
   })
 
   output$results_table <- renderDT({
@@ -674,14 +791,19 @@ sample4   Treatment"
   # ###
 
   output$log_text <- renderPrint({
-    cat("LPEseq2 web tool\n")
     cat("1. Upload counts file (CSV, TSV, or TXT).\n")
     cat("2. Upload metadata file (CSV, TSV, or TXT).\n")
     cat("3. Select group variable.\n")
     cat("4. Click Run Analysis.\n")
     cat("\n")
+    cat("=== Settings ===\n")
+    cat("gene ID column:", if (isTRUE(input$has_gene_id)) "yes (first column)" else "no (auto-assigned)", "\n")
     cat("Counts columns must match metadata row names.\n")
-    cat("analysis method: ", input$analysis_method, "\n")
+    cat("analysis method:", input$analysis_method, "\n")
+    cat("normalize method:", input$normalize_method, "\n")
+    cat("log transform:", input$log_transform, "\n")
+    cat("min count:", input$min_count, "\n")
+    cat("analysis method:", input$analysis_method, "\n")
 
     if (input$analysis_method == "auto") {
       cat("standard.min.group.n: ", input$standard_min_group_n, "\n")
