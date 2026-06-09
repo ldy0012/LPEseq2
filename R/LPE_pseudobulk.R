@@ -130,20 +130,14 @@ LPE_pseudobulk <- function(
   analysis.method <- match.arg(analysis.method)
   trim.method <- match.arg(trim.method)
   p.method <- match.arg(p.method)
-  
-  # ------------------------------------------------------------
-  # Check whether the required pseudo-bulk generation function exists
-  # ------------------------------------------------------------
+
   if (!exists("make_pseudobulk_from_seurat")) {
     stop(
       "make_pseudobulk_from_seurat() function is not found. ",
       "Please define it before running LPE_pseudobulk()."
     )
   }
-  
-  # ------------------------------------------------------------
-  # Check required packages
-  # ------------------------------------------------------------
+
   if (!requireNamespace("LPEseq2", quietly = TRUE)) {
     stop(
       "LPEseq2 package is required. ",
@@ -155,23 +149,13 @@ LPE_pseudobulk <- function(
     stop("Matrix package is required.")
   }
   
-  # ------------------------------------------------------------
-  # Warn users when condition-level pooled pseudo-bulk is selected
-  # ------------------------------------------------------------
   if (method == "condition") {
     warning(
       "method = 'condition' creates pooled pseudo-bulk samples, usually n = 1 per condition per cell type. ",
       "This approach is useful for exploratory comparison, but DEG p-values should be interpreted cautiously."
     )
   }
-  
-  # ------------------------------------------------------------
-  # 1. Generate pseudo-bulk raw count matrices from the Seurat object
-  #    method = "sample":
-  #      aggregate raw counts by sample, condition, and cell type
-  #    method = "condition":
-  #      aggregate raw counts by condition and cell type
-  # ------------------------------------------------------------
+
   pb <- make_pseudobulk_from_seurat(
     seurat_obj = seurat_obj,
     method = method,
@@ -186,10 +170,6 @@ LPE_pseudobulk <- function(
   
   available_celltypes <- names(pb$counts_by_celltype)
   
-  # ------------------------------------------------------------
-  # 2. Select cell types to analyze
-  #    If celltypes = NULL, all available cell types are analyzed
-  # ------------------------------------------------------------
   if (is.null(celltypes)) {
     celltypes_to_run <- available_celltypes
   } else {
@@ -208,20 +188,14 @@ LPE_pseudobulk <- function(
   if (length(celltypes_to_run) == 0) {
     stop("No valid cell types to analyze.")
   }
-  
-  # ------------------------------------------------------------
-  # 3. Prepare containers for outputs
-  # ------------------------------------------------------------
+
   result_list <- list()
   prep_list <- list()
   count_list <- list()
   metadata_list <- list()
   diagnostic_list <- list()
   error_list <- list()
-  
-  # ------------------------------------------------------------
-  # 4. Run LPEseq2 for each cell type
-  # ------------------------------------------------------------
+
   for (ct in celltypes_to_run) {
     if (verbose) {
       cat("\n==============================\n")
@@ -232,16 +206,9 @@ LPE_pseudobulk <- function(
     counts_ct <- pb$counts_by_celltype[[ct]]
     meta_ct <- pb$metadata_by_celltype[[ct]]
     
-    # ----------------------------------------------------------
-    # Convert sparse matrix to a standard numeric matrix
-    # LPEseq2 expects a gene x sample count matrix
-    # ----------------------------------------------------------
     counts_ct <- as.matrix(counts_ct)
     storage.mode(counts_ct) <- "numeric"
-    
-    # ----------------------------------------------------------
-    # Match metadata rows to count matrix columns
-    # ----------------------------------------------------------
+
     meta_ct <- meta_ct[colnames(counts_ct), , drop = FALSE]
     
     if (!all(colnames(counts_ct) == rownames(meta_ct))) {
@@ -250,17 +217,11 @@ LPE_pseudobulk <- function(
         ct
       )
     }
-    
-    # ----------------------------------------------------------
-    # Create a group variable for LPEseq2 design
-    # ----------------------------------------------------------
+
     meta_ct$group <- factor(meta_ct$condition)
     
     group_table <- table(meta_ct$group)
-    
-    # ----------------------------------------------------------
-    # Store diagnostic information for this cell type
-    # ----------------------------------------------------------
+
     diagnostic_list[[ct]] <- list(
       celltype = ct,
       n_pseudobulk_samples = ncol(counts_ct),
@@ -269,18 +230,12 @@ LPE_pseudobulk <- function(
       n_cells = meta_ct$n_cells,
       library_size = meta_ct$library_size
     )
-    
-    # ----------------------------------------------------------
-    # Skip analysis if fewer than two groups are available
-    # ----------------------------------------------------------
+
     if (nlevels(meta_ct$group) < 2) {
       error_list[[ct]] <- "Skipped: fewer than two groups."
       next
     }
-    
-    # ----------------------------------------------------------
-    # Warn when any group has only one pseudo-bulk sample
-    # ----------------------------------------------------------
+
     if (any(group_table == 1)) {
       warning(
         "Cell type '", ct, "' has at least one group with only one pseudo-bulk sample. ",
@@ -288,9 +243,6 @@ LPE_pseudobulk <- function(
       )
     }
     
-    # ----------------------------------------------------------
-    # Remove pseudo-bulk samples with zero library size
-    # ----------------------------------------------------------
     lib_size <- colSums(counts_ct)
     
     if (any(lib_size == 0)) {
@@ -300,18 +252,12 @@ LPE_pseudobulk <- function(
       meta_ct <- meta_ct[keep_samples, , drop = FALSE]
       meta_ct$group <- droplevels(meta_ct$group)
     }
-    
-    # ----------------------------------------------------------
-    # Re-check whether sufficient samples and groups remain
-    # ----------------------------------------------------------
+
     if (ncol(counts_ct) < 2 || nlevels(meta_ct$group) < 2) {
       error_list[[ct]] <- "Skipped: insufficient pseudo-bulk samples after zero-library filtering."
       next
     }
-    
-    # ----------------------------------------------------------
-    # 5. Run LPEseq2 preprocessing and LPE-ANOVA
-    # ----------------------------------------------------------
+
     run_one <- tryCatch(
       {
         # Preprocess raw counts:
@@ -370,37 +316,25 @@ LPE_pseudobulk <- function(
         e
       }
     )
-    
-    # ----------------------------------------------------------
-    # Store errors if the analysis failed for this cell type
-    # ----------------------------------------------------------
+
     if (inherits(run_one, "error")) {
       error_list[[ct]] <- conditionMessage(run_one)
       next
     }
-    
-    # ----------------------------------------------------------
-    # Store successful results
-    # ----------------------------------------------------------
+
     prep_list[[ct]] <- run_one$prep
     result_list[[ct]] <- run_one$result
     count_list[[ct]] <- counts_ct
     metadata_list[[ct]] <- meta_ct
   }
-  
-  # ------------------------------------------------------------
-  # 6. Combine cell-type-specific DEG results into one table
-  # ------------------------------------------------------------
+
   combined_result <- NULL
   
   if (length(result_list) > 0) {
     combined_result <- do.call(rbind, result_list)
     rownames(combined_result) <- NULL
   }
-  
-  # ------------------------------------------------------------
-  # 7. Return all outputs
-  # ------------------------------------------------------------
+
   return(
     list(
       pseudobulk = pb,

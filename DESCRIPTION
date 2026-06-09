@@ -29,6 +29,7 @@ BugReports: https://github.com/ldy0012/LPEseq2/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Imports:
+    methods,
     stats,
     utils,
     edgeR,

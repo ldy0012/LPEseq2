@@ -71,6 +71,8 @@
 #' neuron_meta <- pb$metadata_by_celltype$Neuron
 #' }
 #'
+#' @importFrom methods as
+#' @importFrom stats complete.cases
 #' @export
 
 make_pseudobulk_from_seurat <- function(
@@ -96,7 +98,7 @@ make_pseudobulk_from_seurat <- function(
   }
   
   # ------------------------------------------------------------
-  # 1. Extract the raw count matrix
+  #    Extract the raw count matrix
   #    Seurat v5 uses layer = "counts"
   #    Seurat v4 uses slot = "counts"
   # ------------------------------------------------------------
@@ -120,10 +122,7 @@ make_pseudobulk_from_seurat <- function(
   if (is.null(colnames(counts))) {
     stop("Count matrix must have cell barcodes as column names.")
   }
-  
-  # ------------------------------------------------------------
-  # 2. Extract cell-level metadata
-  # ------------------------------------------------------------
+
   meta <- seurat_obj[[]]
   
   required_cols <- c(condition_col, celltype_col)
@@ -150,10 +149,7 @@ make_pseudobulk_from_seurat <- function(
   
   counts <- counts[, common_cells, drop = FALSE]
   meta <- meta[common_cells, , drop = FALSE]
-  
-  # ------------------------------------------------------------
-  # 3. Remove cells with missing metadata values
-  # ------------------------------------------------------------
+
   keep_cells <- complete.cases(meta[, required_cols, drop = FALSE])
   
   counts <- counts[, keep_cells, drop = FALSE]
@@ -164,7 +160,7 @@ make_pseudobulk_from_seurat <- function(
   }
   
   # ------------------------------------------------------------
-  # 4. Define pseudo-bulk groups
+  #    Define pseudo-bulk groups
   #    method = "condition":
   #      aggregate raw counts by condition and cell type
   #    method = "sample":
@@ -201,12 +197,7 @@ make_pseudobulk_from_seurat <- function(
   }
   
   group_factor <- factor(group_id, levels = unique(group_id))
-  
-  # ------------------------------------------------------------
-  # 5. Create a sparse cell-to-pseudobulk design matrix
-  #    Rows represent individual cells
-  #    Columns represent pseudo-bulk samples
-  # ------------------------------------------------------------
+
   design_mat <- Matrix::sparseMatrix(
     i = seq_along(group_factor),
     j = as.integer(group_factor),
@@ -216,18 +207,10 @@ make_pseudobulk_from_seurat <- function(
   
   colnames(design_mat) <- levels(group_factor)
   rownames(design_mat) <- colnames(counts)
-  
-  # ------------------------------------------------------------
-  # 6. Aggregate raw counts
-  #    gene x cell  %*%  cell x pseudo-sample
-  #    = gene x pseudo-sample
-  # ------------------------------------------------------------
+
   pseudo_counts <- counts %*% design_mat
   pseudo_counts <- as(pseudo_counts, "dgCMatrix")
-  
-  # ------------------------------------------------------------
-  # 7. Create pseudo-bulk sample metadata
-  # ------------------------------------------------------------
+
   pseudo_meta <- group_df[!duplicated(group_id), , drop = FALSE]
   pseudo_meta$pseudo_sample_id <- unique(group_id)
   
@@ -241,10 +224,7 @@ make_pseudobulk_from_seurat <- function(
   
   # Match metadata rows to the pseudo-count matrix columns
   pseudo_meta <- pseudo_meta[colnames(pseudo_counts), , drop = FALSE]
-  
-  # ------------------------------------------------------------
-  # 8. Filter pseudo-bulk samples by the minimum number of cells
-  # ------------------------------------------------------------
+
   keep_pb <- pseudo_meta$n_cells >= min_cells
   
   pseudo_counts <- pseudo_counts[, keep_pb, drop = FALSE]
@@ -253,10 +233,7 @@ make_pseudobulk_from_seurat <- function(
   if (ncol(pseudo_counts) == 0) {
     stop("No pseudo-bulk samples remain after applying min_cells filter.")
   }
-  
-  # ------------------------------------------------------------
-  # 9. Optionally split pseudo-bulk matrices by cell type
-  # ------------------------------------------------------------
+
   if (split_by_celltype) {
     celltypes <- unique(pseudo_meta$celltype)
     
