@@ -14,7 +14,9 @@ make_pseudobulk_from_seurat(
   celltype_col = "celltype",
   min_cells = 10,
   split_by_celltype = TRUE,
-  id_sep = "__"
+  id_sep = "__",
+  normalize_by_ncells = FALSE,
+  ncells_scale = 1000
 )
 }
 \arguments{
@@ -48,13 +50,40 @@ count matrices and metadata split by cell type. Default is \code{TRUE}.}
 
 \item{id_sep}{Character string used to concatenate metadata fields when creating
 pseudo-bulk sample IDs. Default is \code{"__"}.}
+
+\item{normalize_by_ncells}{Logical. If \code{TRUE}, each pseudo-bulk sample's
+raw count vector is divided by its cell count and multiplied by
+\code{ncells_scale} after aggregation. This scales each sample to a
+per-\code{ncells_scale}-cells basis, reducing the effect of cell number
+imbalance across samples.
+Mathematically, for sample s with n_s cells, the normalized count is:
+\deqn{count_{gs}^{norm} = count_{gs} / (n_s / scale)}
+This is equivalent to scaling each cell's raw count by \code{ncells_scale / n_s}
+before aggregation. Because the resulting values are non-integer,
+\code{normalize.method = "none"} is recommended in downstream
+\code{LPE_preprocess()} calls. TMM and DESeq2 normalization require raw
+integer counts and should not be used after this normalization.
+Only meaningful when \code{method = "sample"}, because cell number imbalance
+across samples is the target problem. When \code{method = "condition"}, all
+cells within a condition are pooled regardless of sample origin, so
+per-sample cell count normalization does not apply in the same way.
+Default is \code{FALSE}.}
+
+\item{ncells_scale}{Positive numeric. Scale factor used when
+\code{normalize_by_ncells = TRUE}. The pseudo-bulk count for each sample is
+divided by \code{n_cells / ncells_scale}. Default is \code{1000}
+(per-1000-cells normalization).}
 }
 \value{
 A list containing:
 \describe{
-\item{\code{counts}}{A gene-by-pseudo-sample sparse raw count matrix.}
+\item{\code{counts}}{A gene-by-pseudo-sample count matrix. When
+\code{normalize_by_ncells = FALSE}, this is a sparse integer matrix.
+When \code{normalize_by_ncells = TRUE}, this is a dense numeric matrix
+with non-integer values.}
 \item{\code{metadata}}{Pseudo-bulk sample metadata including condition,
-cell type, number of cells, library size, and pseudo-bulk method.}
+cell type, number of cells, library size, pseudo-bulk method,
+and normalization flags.}
 \item{\code{counts_by_celltype}}{If \code{split_by_celltype = TRUE}, a list
 of gene-by-pseudo-sample count matrices split by cell type.}
 \item{\code{metadata_by_celltype}}{If \code{split_by_celltype = TRUE}, a list
@@ -85,9 +114,20 @@ comparison.
 When \code{method = "sample"}, biological replicates are preserved by generating
 one pseudo-bulk sample per sample and cell type. This is the recommended mode
 for downstream differential expression analysis.
+
+When \code{normalize_by_ncells = TRUE}, the pseudo-bulk count matrix is scaled
+so that each sample represents a per-\code{ncells_scale}-cells expression level.
+This removes the effect of unequal cell numbers across samples, which can
+otherwise inflate library size differences and distort normalization.
+The scaling is applied after aggregation and after the \code{min_cells} filter.
+Because the scaled values are non-integer, TMM and DESeq2 normalization are
+not appropriate in downstream steps. Use \code{normalize.method = "none"} with
+\code{log.transform = TRUE} in \code{LPE_preprocess()}.
+This option is only meaningful when \code{method = "sample"}.
 }
 \examples{
 \dontrun{
+# Standard pseudo-bulk (raw integer counts)
 pb <- make_pseudobulk_from_seurat(
   seurat_obj = seurat_obj,
   method = "sample",
@@ -98,6 +138,18 @@ pb <- make_pseudobulk_from_seurat(
 
 neuron_counts <- pb$counts_by_celltype$Neuron
 neuron_meta <- pb$metadata_by_celltype$Neuron
+
+# Cell-number-normalized pseudo-bulk
+# Use when cell numbers are substantially unequal across samples
+pb_norm <- make_pseudobulk_from_seurat(
+  seurat_obj = seurat_obj,
+  method = "sample",
+  sample_col = "sample_id",
+  condition_col = "condition",
+  celltype_col = "celltype",
+  normalize_by_ncells = TRUE,
+  ncells_scale = 1000
+)
 }
 
 }

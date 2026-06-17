@@ -21,13 +21,28 @@
 #'   analyze. If \code{NULL}, all available cell types are analyzed.
 #' @param min_cells Integer specifying the minimum number of cells required for a
 #'   pseudo-bulk sample to be retained. Default is 10.
+#' @param normalize_by_ncells Logical. If \code{TRUE}, each pseudo-bulk sample's
+#'   aggregated count vector is divided by its cell count and multiplied by
+#'   \code{ncells_scale}, scaling to a per-\code{ncells_scale}-cells basis.
+#'   This reduces the effect of cell number imbalance across samples.
+#'   When \code{TRUE}, \code{normalize.method} is automatically forced to
+#'   \code{"none"} and a warning is issued if the user specifies \code{"TMM"}
+#'   or \code{"DESeq2"}, because those methods require raw integer counts.
+#'   Only meaningful when \code{method = "sample"}.
+#'   Default is \code{FALSE}.
+#' @param ncells_scale Positive numeric. Scale factor used when
+#'   \code{normalize_by_ncells = TRUE}. Default is \code{1000}.
 #' @param normalize.method Character string specifying the normalization method
 #'   passed to \code{\link{LPE_preprocess}}. One of \code{"TMM"},
 #'   \code{"library_size"}, \code{"DESeq2"}, or \code{"none"}.
+#'   When \code{normalize_by_ncells = TRUE}, this is automatically set to
+#'   \code{"none"}.
 #' @param log.transform Logical. Whether to apply log transformation during
 #'   preprocessing. Passed to \code{\link{LPE_preprocess}}.
 #' @param min.count Numeric value specifying the minimum count threshold used
 #'   during preprocessing. Passed to \code{\link{LPE_preprocess}}.
+#'   When \code{normalize_by_ncells = TRUE}, the count scale changes and this
+#'   value may need to be adjusted accordingly.
 #' @param prior.count Numeric prior count added before log transformation.
 #'   Passed to \code{\link{LPE_preprocess}}.
 #' @param analysis.method Character string specifying the LPEseq2 analysis method.
@@ -57,12 +72,21 @@
 #' condition. Results from condition-level pseudo-bulk analysis should therefore
 #' be interpreted as exploratory.
 #'
+#' When \code{normalize_by_ncells = TRUE}, pseudo-bulk counts are scaled to a
+#' per-\code{ncells_scale}-cells basis before LPEseq2 preprocessing. This
+#' equalizes the contribution of each sample regardless of the number of cells,
+#' which is useful when cell numbers are substantially unequal across samples.
+#' Because the resulting values are non-integer, \code{normalize.method} is
+#' automatically forced to \code{"none"} when \code{normalize_by_ncells = TRUE}.
+#'
 #' @return A list containing:
 #' \describe{
 #'   \item{\code{pseudobulk}}{The full pseudo-bulk object returned by
 #'   \code{\link{make_pseudobulk_from_seurat}}.}
-#'   \item{\code{counts_by_celltype}}{A list of raw pseudo-bulk count matrices
-#'   used for LPEseq2 analysis, split by cell type.}
+#'   \item{\code{counts_by_celltype}}{A list of pseudo-bulk count matrices
+#'   used for LPEseq2 analysis, split by cell type. When
+#'   \code{normalize_by_ncells = TRUE}, these are cell-number-normalized
+#'   non-integer matrices.}
 #'   \item{\code{metadata_by_celltype}}{A list of pseudo-bulk metadata tables
 #'   used for LPEseq2 analysis, split by cell type.}
 #'   \item{\code{prep_by_celltype}}{A list of preprocessed LPEseq2 objects
@@ -75,19 +99,34 @@
 #'   of pseudo-bulk samples, group sizes, cell counts, and library sizes.}
 #'   \item{\code{errors}}{A list of errors or skipped-analysis messages for cell
 #'   types that could not be analyzed.}
-#'   \item{\code{settings}}{A list of analysis settings used in the run.}
+#'   \item{\code{settings}}{A list of analysis settings used in the run, including
+#'   \code{normalize_by_ncells} and \code{ncells_scale}.}
 #' }
 #'
 #' @examples
 #' \dontrun{
+#' # Standard pseudo-bulk (raw integer counts, TMM normalization)
 #' res <- LPE_pseudobulk(
 #'   seurat_obj = seurat_obj,
 #'   method = "sample",
 #'   sample_col = "sample_id",
 #'   condition_col = "condition",
 #'   celltype_col = "celltype",
-#'   celltypes = c("Neuron"),
 #'   normalize.method = "TMM",
+#'   analysis.method = "auto"
+#' )
+#'
+#' # Cell-number-normalized pseudo-bulk
+#' # Use when cell numbers are substantially unequal across samples
+#' res_norm <- LPE_pseudobulk(
+#'   seurat_obj = seurat_obj,
+#'   method = "sample",
+#'   sample_col = "sample_id",
+#'   condition_col = "condition",
+#'   celltype_col = "celltype",
+#'   normalize_by_ncells = TRUE,
+#'   ncells_scale = 1000,
+#'   min.count = 1,
 #'   analysis.method = "auto"
 #' )
 #'
@@ -112,6 +151,8 @@ LPE_pseudobulk <- function(
     celltype_col = "celltype",
     celltypes = NULL,
     min_cells = 10,
+    normalize_by_ncells = FALSE,
+    ncells_scale = 1000,
     normalize.method = c("TMM", "library_size", "DESeq2", "none"),
     log.transform = TRUE,
     min.count = 5,
@@ -131,6 +172,34 @@ LPE_pseudobulk <- function(
   trim.method <- match.arg(trim.method)
   p.method <- match.arg(p.method)
 
+  # ------------------------------------------------------------
+  #    Validate normalize_by_ncells arguments
+  # ------------------------------------------------------------
+  if (!is.logical(normalize_by_ncells) || length(normalize_by_ncells) != 1) {
+    stop("normalize_by_ncells must be a single logical value (TRUE or FALSE).")
+  }
+
+  if (!is.numeric(ncells_scale) || length(ncells_scale) != 1 || ncells_scale <= 0) {
+    stop("ncells_scale must be a single positive numeric value.")
+  }
+
+  # ------------------------------------------------------------
+  #    When normalize_by_ncells = TRUE, force normalize.method = "none"
+  #    TMM and DESeq2 require raw integer counts and are not appropriate
+  #    for cell-number-normalized non-integer pseudo-bulk values
+  # ------------------------------------------------------------
+  if (normalize_by_ncells) {
+    if (normalize.method %in% c("TMM", "DESeq2")) {
+      warning(
+        "normalize_by_ncells = TRUE produces non-integer values. ",
+        "normalize.method has been automatically set to 'none'. ",
+        "TMM and DESeq2 normalization require raw integer counts and ",
+        "should not be used after cell-number normalization."
+      )
+      normalize.method <- "none"
+    }
+  }
+
   if (!exists("make_pseudobulk_from_seurat")) {
     stop(
       "make_pseudobulk_from_seurat() function is not found. ",
@@ -144,11 +213,11 @@ LPE_pseudobulk <- function(
       "Install it with devtools::install_github('ldy0012/LPEseq2')."
     )
   }
-  
+
   if (!requireNamespace("Matrix", quietly = TRUE)) {
     stop("Matrix package is required.")
   }
-  
+
   if (method == "condition") {
     warning(
       "method = 'condition' creates pooled pseudo-bulk samples, usually n = 1 per condition per cell type. ",
@@ -156,6 +225,11 @@ LPE_pseudobulk <- function(
     )
   }
 
+  # ------------------------------------------------------------
+  #    Generate pseudo-bulk count matrices from the Seurat object
+  #    normalize_by_ncells and ncells_scale are passed through
+  #    to make_pseudobulk_from_seurat()
+  # ------------------------------------------------------------
   pb <- make_pseudobulk_from_seurat(
     seurat_obj = seurat_obj,
     method = method,
@@ -165,26 +239,28 @@ LPE_pseudobulk <- function(
     condition_col = condition_col,
     celltype_col = celltype_col,
     min_cells = min_cells,
-    split_by_celltype = TRUE
+    split_by_celltype = TRUE,
+    normalize_by_ncells = normalize_by_ncells,
+    ncells_scale = ncells_scale
   )
-  
+
   available_celltypes <- names(pb$counts_by_celltype)
-  
+
   if (is.null(celltypes)) {
     celltypes_to_run <- available_celltypes
   } else {
     missing_ct <- setdiff(celltypes, available_celltypes)
-    
+
     if (length(missing_ct) > 0) {
       warning(
         "These cell types are not found in the pseudo-bulk object: ",
         paste(missing_ct, collapse = ", ")
       )
     }
-    
+
     celltypes_to_run <- intersect(celltypes, available_celltypes)
   }
-  
+
   if (length(celltypes_to_run) == 0) {
     stop("No valid cell types to analyze.")
   }
@@ -202,15 +278,15 @@ LPE_pseudobulk <- function(
       cat("Running cell type:", ct, "\n")
       cat("==============================\n")
     }
-    
+
     counts_ct <- pb$counts_by_celltype[[ct]]
     meta_ct <- pb$metadata_by_celltype[[ct]]
-    
+
     counts_ct <- as.matrix(counts_ct)
     storage.mode(counts_ct) <- "numeric"
 
     meta_ct <- meta_ct[colnames(counts_ct), , drop = FALSE]
-    
+
     if (!all(colnames(counts_ct) == rownames(meta_ct))) {
       stop(
         "Column names of counts and row names of metadata are not matched for cell type: ",
@@ -219,7 +295,7 @@ LPE_pseudobulk <- function(
     }
 
     meta_ct$group <- factor(meta_ct$condition)
-    
+
     group_table <- table(meta_ct$group)
 
     diagnostic_list[[ct]] <- list(
@@ -242,12 +318,12 @@ LPE_pseudobulk <- function(
         "Statistical inference may be unstable."
       )
     }
-    
+
     lib_size <- colSums(counts_ct)
-    
+
     if (any(lib_size == 0)) {
       keep_samples <- lib_size > 0
-      
+
       counts_ct <- counts_ct[, keep_samples, drop = FALSE]
       meta_ct <- meta_ct[keep_samples, , drop = FALSE]
       meta_ct$group <- droplevels(meta_ct$group)
@@ -260,8 +336,11 @@ LPE_pseudobulk <- function(
 
     run_one <- tryCatch(
       {
-        # Preprocess raw counts:
-        # filtering, normalization, and log transformation are handled here
+        # Preprocess counts:
+        # When normalize_by_ncells = TRUE, counts are already cell-number-normalized
+        # non-integer values, so normalize.method has been forced to "none" above.
+        # When normalize_by_ncells = FALSE, counts are raw integers and
+        # normalize.method is applied here as specified by the user.
         prep <- LPE_preprocess(
           counts = counts_ct,
           colData = meta_ct,
@@ -272,7 +351,7 @@ LPE_pseudobulk <- function(
           prior.count = prior.count,
           verbose = verbose
         )
-        
+
         # Run LPEseq2 differential expression analysis
         res <- LPE_ANOVA(
           object = prep,
@@ -285,28 +364,28 @@ LPE_pseudobulk <- function(
           p.method = p.method,
           verbose = verbose
         )
-        
+
         # Add cell type and pseudo-bulk method information
         res$celltype <- ct
         res$requested_pseudobulk_method <- method
-        
+
         selected_method <- attr(res, "analysis.method")
         if (is.null(selected_method)) {
           selected_method <- NA
         }
-        
+
         res$selected_LPEseq2_method <- selected_method
-        
+
         # Move important annotation columns to the front
         front_cols <- intersect(
           c("celltype", "gene", "requested_pseudobulk_method", "selected_LPEseq2_method"),
           colnames(res)
         )
-        
+
         other_cols <- setdiff(colnames(res), front_cols)
-        
+
         res <- res[, c(front_cols, other_cols), drop = FALSE]
-        
+
         list(
           prep = prep,
           result = res
@@ -329,7 +408,7 @@ LPE_pseudobulk <- function(
   }
 
   combined_result <- NULL
-  
+
   if (length(result_list) > 0) {
     combined_result <- do.call(rbind, result_list)
     rownames(combined_result) <- NULL
@@ -347,6 +426,8 @@ LPE_pseudobulk <- function(
       errors = error_list,
       settings = list(
         pseudobulk_method = method,
+        normalize_by_ncells = normalize_by_ncells,
+        ncells_scale = ncells_scale,
         normalize.method = normalize.method,
         log.transform = log.transform,
         min.count = min.count,

@@ -14,6 +14,8 @@ LPE_pseudobulk(
   celltype_col = "celltype",
   celltypes = NULL,
   min_cells = 10,
+  normalize_by_ncells = FALSE,
+  ncells_scale = 1000,
   normalize.method = c("TMM", "library_size", "DESeq2", "none"),
   log.transform = TRUE,
   min.count = 5,
@@ -54,15 +56,32 @@ analyze. If \code{NULL}, all available cell types are analyzed.}
 \item{min_cells}{Integer specifying the minimum number of cells required for a
 pseudo-bulk sample to be retained. Default is 10.}
 
+\item{normalize_by_ncells}{Logical. If \code{TRUE}, each pseudo-bulk sample's
+aggregated count vector is divided by its cell count and multiplied by
+\code{ncells_scale}, scaling to a per-\code{ncells_scale}-cells basis.
+This reduces the effect of cell number imbalance across samples.
+When \code{TRUE}, \code{normalize.method} is automatically forced to
+\code{"none"} and a warning is issued if the user specifies \code{"TMM"}
+or \code{"DESeq2"}, because those methods require raw integer counts.
+Only meaningful when \code{method = "sample"}.
+Default is \code{FALSE}.}
+
+\item{ncells_scale}{Positive numeric. Scale factor used when
+\code{normalize_by_ncells = TRUE}. Default is \code{1000}.}
+
 \item{normalize.method}{Character string specifying the normalization method
 passed to \code{\link{LPE_preprocess}}. One of \code{"TMM"},
-\code{"library_size"}, \code{"DESeq2"}, or \code{"none"}.}
+\code{"library_size"}, \code{"DESeq2"}, or \code{"none"}.
+When \code{normalize_by_ncells = TRUE}, this is automatically set to
+\code{"none"}.}
 
 \item{log.transform}{Logical. Whether to apply log transformation during
 preprocessing. Passed to \code{\link{LPE_preprocess}}.}
 
 \item{min.count}{Numeric value specifying the minimum count threshold used
-during preprocessing. Passed to \code{\link{LPE_preprocess}}.}
+during preprocessing. Passed to \code{\link{LPE_preprocess}}.
+When \code{normalize_by_ncells = TRUE}, the count scale changes and this
+value may need to be adjusted accordingly.}
 
 \item{prior.count}{Numeric prior count added before log transformation.
 Passed to \code{\link{LPE_preprocess}}.}
@@ -94,8 +113,10 @@ A list containing:
 \describe{
 \item{\code{pseudobulk}}{The full pseudo-bulk object returned by
 \code{\link{make_pseudobulk_from_seurat}}.}
-\item{\code{counts_by_celltype}}{A list of raw pseudo-bulk count matrices
-used for LPEseq2 analysis, split by cell type.}
+\item{\code{counts_by_celltype}}{A list of pseudo-bulk count matrices
+used for LPEseq2 analysis, split by cell type. When
+\code{normalize_by_ncells = TRUE}, these are cell-number-normalized
+non-integer matrices.}
 \item{\code{metadata_by_celltype}}{A list of pseudo-bulk metadata tables
 used for LPEseq2 analysis, split by cell type.}
 \item{\code{prep_by_celltype}}{A list of preprocessed LPEseq2 objects
@@ -108,7 +129,8 @@ across all successfully analyzed cell types.}
 of pseudo-bulk samples, group sizes, cell counts, and library sizes.}
 \item{\code{errors}}{A list of errors or skipped-analysis messages for cell
 types that could not be analyzed.}
-\item{\code{settings}}{A list of analysis settings used in the run.}
+\item{\code{settings}}{A list of analysis settings used in the run, including
+\code{normalize_by_ncells} and \code{ncells_scale}.}
 }
 }
 \description{
@@ -128,17 +150,38 @@ contrast, \code{method = "condition"} pools cells across all samples within
 each condition and cell type, usually producing one pseudo-bulk sample per
 condition. Results from condition-level pseudo-bulk analysis should therefore
 be interpreted as exploratory.
+
+When \code{normalize_by_ncells = TRUE}, pseudo-bulk counts are scaled to a
+per-\code{ncells_scale}-cells basis before LPEseq2 preprocessing. This
+equalizes the contribution of each sample regardless of the number of cells,
+which is useful when cell numbers are substantially unequal across samples.
+Because the resulting values are non-integer, \code{normalize.method} is
+automatically forced to \code{"none"} when \code{normalize_by_ncells = TRUE}.
 }
 \examples{
 \dontrun{
+# Standard pseudo-bulk (raw integer counts, TMM normalization)
 res <- LPE_pseudobulk(
   seurat_obj = seurat_obj,
   method = "sample",
   sample_col = "sample_id",
   condition_col = "condition",
   celltype_col = "celltype",
-  celltypes = c("Neuron"),
   normalize.method = "TMM",
+  analysis.method = "auto"
+)
+
+# Cell-number-normalized pseudo-bulk
+# Use when cell numbers are substantially unequal across samples
+res_norm <- LPE_pseudobulk(
+  seurat_obj = seurat_obj,
+  method = "sample",
+  sample_col = "sample_id",
+  condition_col = "condition",
+  celltype_col = "celltype",
+  normalize_by_ncells = TRUE,
+  ncells_scale = 1000,
+  min.count = 1,
   analysis.method = "auto"
 )
 
