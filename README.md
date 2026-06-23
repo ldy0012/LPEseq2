@@ -2,9 +2,18 @@
 
 LPEseq2 is an R package for differential expression analysis of RNA-seq count data using local pooled error-based ANOVA and conventional one-way ANOVA.
 
-The package provides functions for preprocessing RNA-seq count data, estimating intensity-dependent variance trends, and performing multi-group differential expression analysis. LPEseq2 supports LPE-ANOVA for small-sample RNA-seq data, standard gene-wise one-way ANOVA for larger sample sizes, and an automatic mode that selects the analysis method based on group sample size.
+Many RNA-seq studies — including pilot experiments, rare clinical sample studies, and reanalyses of public datasets — are limited to one or two biological replicates per condition. This constraint is especially common in single-cell RNA-seq (scRNA-seq), where the high per-sample cost of library preparation and sequencing often restricts the number of biological donors to one or two per condition, even when large numbers of cells are profiled. Under these low-replicate conditions, conventional differential expression methods such as DESeq2 and edgeR may produce unreliable results or fail to run, because per-gene dispersion estimation becomes unstable.
 
-LPEseq2 also provides a Seurat-based pseudo-bulk workflow for applying LPEseq2 to annotated single-cell RNA-seq data.
+LPEseq2 addresses this by borrowing variance information across genes with similar expression intensities rather than estimating it per gene independently, making it applicable even when only one replicate per group is available. LPEseq2 supports LPE-ANOVA for small-sample RNA-seq data, standard gene-wise one-way ANOVA for larger sample sizes, and an automatic mode that selects the analysis method based on group sample size.
+
+LPEseq2 also provides a Seurat-integrated pseudo-bulk workflow for cell-type-resolved differential expression analysis of annotated scRNA-seq data. This is particularly useful when the number of biological donors per condition is too small for conventional pseudo-bulk methods.
+
+> **LPEseq2 is intended as a complementary exploratory tool, not a replacement for established methods such as DESeq2, edgeR, or limma-voom when adequate replication is available.** The p-values and adjusted p-values produced by LPEseq2 should be treated as approximate candidate-gene ranking measures rather than calibrated false discovery rate guarantees. Biological follow-up validation is recommended.
+
+You can also run LPEseq2 directly in the browser without any installation:
+[Launch LPEseq2 Shiny Web Tool](https://ldy0012.shinyapps.io/lpeseq2app/)
+
+---
 
 ## Installation
 
@@ -40,15 +49,19 @@ install.packages("Matrix")
 
 `Seurat` is required only for Seurat object-based pseudo-bulk workflows. The core LPEseq2 workflow using count matrices and sample metadata can be used without Seurat.
 
+---
+
 ## Main functions
 
-| Function                        | Description                                                                                                                |
-| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `LPE_preprocess()`              | Checks count matrix and sample metadata, filters low-count genes, and performs normalization                               |
-| `LPE_ANOVA()`                   | Performs LPE-ANOVA, standard one-way ANOVA, or automatic method selection for multi-group differential expression analysis |
-| `LPE_ANOVA_var()`               | Estimates an intensity-dependent variance trend and stores trimming information                                            |
-| `make_pseudobulk_from_seurat()` | Generates pseudo-bulk raw count matrices from an annotated Seurat object                                                   |
-| `LPE_pseudobulk()`              | Runs LPEseq2 on cell-type-specific pseudo-bulk count matrices generated from a Seurat object                               |
+| Function | Description |
+| --- | --- |
+| `LPE_preprocess()` | Checks count matrix and sample metadata, filters low-count genes, and performs normalization |
+| `LPE_ANOVA()` | Performs LPE-ANOVA, standard one-way ANOVA, or automatic method selection for multi-group differential expression analysis |
+| `LPE_ANOVA_var()` | Estimates an intensity-dependent variance trend and stores trimming information |
+| `make_pseudobulk_from_seurat()` | Generates pseudo-bulk raw count matrices from an annotated Seurat object |
+| `LPE_pseudobulk()` | Runs LPEseq2 on cell-type-specific pseudo-bulk count matrices generated from a Seurat object |
+
+---
 
 ## Input format
 
@@ -78,13 +91,13 @@ The sample metadata should contain samples as rows and variables as columns.
 
 The column names of the count matrix must match the row names of `colData`.
 
+---
+
 ### Seurat object input for pseudo-bulk analysis
 
 For pseudo-bulk analysis, the input should be an annotated Seurat object with raw counts and cell-level metadata.
 
 The Seurat object should contain metadata columns for sample ID, condition, and cell type annotation.
-
-For example:
 
 ```r
 seurat_obj$sample_id
@@ -94,24 +107,52 @@ seurat_obj$celltype
 
 The metadata column names can be customized using the `sample_col`, `condition_col`, and `celltype_col` arguments.
 
-Pseudo-bulk count matrices are generated by summing raw counts across cells within each sample and cell type. Normalized or log-normalized expression values should not be used for pseudo-bulk aggregation.
+Pseudo-bulk count matrices are generated by summing raw counts across cells within each sample and cell type. **Normalized or log-normalized expression values should not be used for pseudo-bulk aggregation.**
 
 Two aggregation modes are supported:
 
-| Method      | Aggregation unit               | Recommended use                                                                                                                          |
-| ----------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `sample`    | sample × condition × cell type | Recommended for differential expression analysis because biological replicates are preserved. Use `normalize_by_ncells = TRUE` if cell numbers are substantially unequal across samples. |
-| `condition` | condition × cell type          | Useful for exploratory pooled comparisons; statistical inference should be interpreted cautiously because biological replicates are not preserved. |
+| Method | Aggregation unit | Recommended use |
+| --- | --- | --- |
+| `sample` | sample × condition × cell type | Recommended for differential expression analysis because biological replicates are preserved. Use `normalize_by_ncells = TRUE` if cell numbers are substantially unequal across samples. |
+| `condition` | condition × cell type | Useful for exploratory pooled comparisons only. Statistical inference should be interpreted cautiously because biological replicates are not preserved. |
+
+---
 
 ### Cell-number normalization for imbalanced pseudo-bulk
 
-When cell numbers are substantially unequal across samples within a cell type, the `normalize_by_ncells` option can be used to reduce this imbalance. When `normalize_by_ncells = TRUE`, each sample's aggregated count vector is divided by its cell count and multiplied by `ncells_scale` (default 1000), scaling to a per-1000-cells basis:
+When cell numbers are substantially unequal across samples within a cell type, the `normalize_by_ncells` option can be used to reduce this imbalance.
+
+When `normalize_by_ncells = TRUE`, each sample's aggregated count vector is scaled to a per-`ncells_scale`-cells basis. This is equivalent to computing CP1K (Counts per 1K Cells) when `ncells_scale = 1000` (default):
 
 ```
-normalized_count = raw_count / (n_cells / ncells_scale)
+CP1K = (sum of raw counts across cells) / n_cells × 1000
+     = raw_count / (n_cells / ncells_scale)
 ```
 
-This equalizes the contribution of each sample regardless of its cell count. Because the resulting values are non-integer, `normalize.method` is automatically set to `"none"` when `normalize_by_ncells = TRUE`. TMM and DESeq2 normalization require raw integer counts and should not be used after cell-number normalization. The `min.count` threshold may also need to be adjusted to match the new count scale.
+This equalizes the contribution of each sample regardless of its cell count, which is particularly important for rare cell types where cell counts differ markedly across samples.
+
+**Normalization method compatibility:**
+
+- `normalize_by_ncells = TRUE` produces non-integer values. Therefore, **TMM and DESeq2 normalization are automatically disabled** because they require raw integer counts.
+- `library_size` normalization **remains available** and can be combined with `normalize_by_ncells = TRUE` to additionally correct for sequencing depth differences after cell-number scaling:
+
+```r
+# Correct for both cell-number imbalance and sequencing depth
+res_pb <- LPE_pseudobulk(
+  seurat_obj = seurat_obj,
+  method = "sample",
+  normalize_by_ncells = TRUE,
+  ncells_scale = 1000,
+  normalize.method = "library_size",   # additionally correct for sequencing depth
+  min.count = 1,
+  ...
+)
+```
+
+- When `normalize_by_ncells = TRUE` and `normalize.method = "none"` (default when TMM/DESeq2 is specified), only cell-number imbalance is corrected. Sequencing depth differences remain uncorrected.
+- The `min.count` threshold should be adjusted to match the scaled count values (for example, `min.count = 1` instead of the default `5`).
+
+---
 
 ## Example
 
@@ -159,6 +200,8 @@ head(res)
 attr(res, "analysis.method")
 ```
 
+---
+
 ### Pseudo-bulk analysis from an annotated Seurat object
 
 The recommended pseudo-bulk workflow is to aggregate raw counts at the sample-by-cell-type level and run LPEseq2 separately for each cell type.
@@ -166,7 +209,7 @@ The recommended pseudo-bulk workflow is to aggregate raw counts at the sample-by
 ```r
 library(LPEseq2)
 
-# Standard pseudo-bulk (raw integer counts, TMM normalization)
+# Standard pseudo-bulk (raw integer counts, library_size normalization)
 res_pb <- LPE_pseudobulk(
   seurat_obj = seurat_obj,
   method = "sample",
@@ -176,7 +219,7 @@ res_pb <- LPE_pseudobulk(
   condition_col = "condition",
   celltype_col = "celltype",
   min_cells = 10,
-  normalize.method = "TMM",
+  normalize.method = "library_size",
   analysis.method = "auto",
   standard.min.group.n = 5,
   n.bin = 100,
@@ -187,10 +230,10 @@ res_pb <- LPE_pseudobulk(
 )
 ```
 
-When cell numbers are substantially unequal across samples within a cell type, use `normalize_by_ncells = TRUE` to scale each sample's counts to a per-1000-cells basis before analysis:
+When cell numbers are substantially unequal across samples within a cell type, use `normalize_by_ncells = TRUE` to scale each sample's counts to a CP1K (per-1000-cells) basis before analysis:
 
 ```r
-# Cell-number-normalized pseudo-bulk
+# Cell-number-normalized pseudo-bulk (CP1K scaling)
 res_pb_norm <- LPE_pseudobulk(
   seurat_obj = seurat_obj,
   method = "sample",
@@ -200,9 +243,10 @@ res_pb_norm <- LPE_pseudobulk(
   condition_col = "condition",
   celltype_col = "celltype",
   min_cells = 10,
-  normalize_by_ncells = TRUE,   # scale to per-1000-cells before analysis
+  normalize_by_ncells = TRUE,       # scale to CP1K (per-1000-cells) basis
   ncells_scale = 1000,
-  min.count = 1,                # adjust threshold for scaled count values
+  normalize.method = "library_size", # additionally correct for sequencing depth
+  min.count = 1,                     # adjust threshold for scaled count values
   analysis.method = "auto",
   standard.min.group.n = 5,
   n.bin = 100,
@@ -213,7 +257,7 @@ res_pb_norm <- LPE_pseudobulk(
 )
 ```
 
-Note: when `normalize_by_ncells = TRUE`, `normalize.method` is automatically set to `"none"` regardless of the user-specified value.
+> **Note:** When `normalize_by_ncells = TRUE`, TMM and DESeq2 normalization are automatically disabled because they require raw integer counts. Use `normalize.method = "library_size"` or `"none"` in combination with `normalize_by_ncells = TRUE`.
 
 The combined result across all analyzed cell types can be accessed as:
 
@@ -227,32 +271,34 @@ Cell-type-specific results can be accessed as:
 ```r
 names(res_pb$results_by_celltype)
 
-neuron_res <- res_pb$results_by_celltype$Neuron
-head(neuron_res)
+cd4_res <- res_pb$results_by_celltype$CD4_T
+head(cd4_res)
 ```
 
 Pseudo-bulk metadata and diagnostic information can be checked as:
 
 ```r
-neuron_meta <- res_pb$metadata_by_celltype$Neuron
-head(neuron_meta)
+cd4_meta <- res_pb$metadata_by_celltype$CD4_T
+head(cd4_meta)
 
-res_pb$diagnostics$Neuron
+res_pb$diagnostics$CD4_T
 res_pb$errors
 ```
 
 If only selected cell types should be analyzed, use the `celltypes` argument:
 
 ```r
-res_neuron <- LPE_pseudobulk(
+res_cd4 <- LPE_pseudobulk(
   seurat_obj = seurat_obj,
   method = "sample",
-  celltypes = c("Neuron"),
+  celltypes = c("CD4_T"),
   sample_col = "sample_id",
   condition_col = "condition",
   celltype_col = "celltype"
 )
 ```
+
+---
 
 ### Creating pseudo-bulk count matrices only
 
@@ -272,7 +318,7 @@ pb <- make_pseudobulk_from_seurat(
   split_by_celltype = TRUE
 )
 
-# Cell-number-normalized pseudo-bulk
+# Cell-number-normalized pseudo-bulk (CP1K)
 pb_norm <- make_pseudobulk_from_seurat(
   seurat_obj = seurat_obj,
   method = "sample",
@@ -296,9 +342,11 @@ pb$metadata
 
 names(pb$counts_by_celltype)
 
-neuron_counts <- pb$counts_by_celltype$Neuron
-neuron_meta <- pb$metadata_by_celltype$Neuron
+cd4_counts <- pb$counts_by_celltype$CD4_T
+cd4_meta   <- pb$metadata_by_celltype$CD4_T
 ```
+
+---
 
 ### Advanced example with IQR-based trimming
 
@@ -323,15 +371,17 @@ attr(res_iqr, "base.var")
 attr(res_iqr, "var.spline")
 ```
 
+---
+
 ## Analysis methods
 
 LPEseq2 supports three analysis modes through the `analysis.method` argument:
 
-| Method           | Description                                                                                                                                                                         |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `LPE`            | Uses local pooled error-based ANOVA. This mode estimates an intensity-dependent pooled variance trend and is useful for small-sample RNA-seq data.                                  |
-| `standard_anova` | Uses conventional gene-wise one-way ANOVA based on within-group residual variance. This mode is more appropriate when each group has enough samples to estimate gene-wise variance. |
-| `auto`           | Automatically selects the analysis method based on the minimum group sample size.                                                                                                   |
+| Method | Description |
+| --- | --- |
+| `LPE` | Uses local pooled error-based ANOVA. Estimates an intensity-dependent pooled variance trend across genes and uses it as the denominator of an ANOVA-like statistic. Recommended for low-replicate settings. |
+| `standard_anova` | Uses conventional gene-wise one-way ANOVA based on within-group residual variance. More appropriate when each group has enough samples for stable per-gene variance estimation. |
+| `auto` | Automatically selects the analysis method based on the minimum group sample size. Uses standard one-way ANOVA when all groups meet `standard.min.group.n`; otherwise uses LPE-ANOVA. |
 
 ### LPE-ANOVA mode
 
@@ -346,6 +396,8 @@ res_lpe <- LPE_ANOVA(
   verbose = FALSE
 )
 ```
+
+The `use_weighted_between` argument controls whether between-group-derived pairwise values are incorporated into variance trend estimation when within-group pairs are sparse. When `TRUE`, these values are included with IQR-based trimming to reduce contamination from true biological group differences. This option is particularly useful for non-replicated data where within-group pairs are unavailable.
 
 ### Standard one-way ANOVA mode
 
@@ -376,223 +428,203 @@ res_auto <- LPE_ANOVA(
 attr(res_auto, "analysis.method")
 ```
 
-The default threshold is:
+The default threshold is `standard.min.group.n = 5`. This is a practical heuristic and can be adjusted depending on the study design and the expected reliability of gene-wise variance estimation.
 
-```r
-standard.min.group.n = 5
-```
-
-This threshold is a practical heuristic. It can be adjusted depending on the study design and the expected reliability of gene-wise variance estimation.
+---
 
 ### Notes on pseudo-bulk interpretation
 
-For pseudo-bulk differential expression analysis, `method = "sample"` is recommended because it preserves biological replicates. For example, if there are three control samples and three case samples, Neuron pseudo-bulk analysis will use:
+For pseudo-bulk differential expression analysis, `method = "sample"` is recommended because it preserves biological replicates. For example, if there are three control samples and three case samples, CD4_T pseudo-bulk analysis will use:
 
-```r
-control1_neuron
-control2_neuron
-control3_neuron
-case1_neuron
-case2_neuron
-case3_neuron
+```
+control1_CD4_T
+control2_CD4_T
+control3_CD4_T
+case1_CD4_T
+case2_CD4_T
+case3_CD4_T
 ```
 
 This structure allows LPEseq2 to model group-level differences while retaining sample-level variability.
 
 In contrast, `method = "condition"` pools all cells within each condition and cell type:
 
-```r
-control_neuron
-case_neuron
+```
+control_CD4_T
+case_CD4_T
 ```
 
 This usually results in one pseudo-bulk sample per condition and cell type. It can be useful for exploratory pooled comparisons, but p-values and adjusted p-values should be interpreted cautiously because biological replicate information is not preserved.
 
 #### Cell number imbalance
 
-When the number of cells varies substantially across samples for a given cell type, this can inflate library size differences between pseudo-bulk samples and affect downstream normalization. The `normalize_by_ncells` option addresses this by scaling each sample's counts to a per-1000-cells basis before analysis. This is only meaningful when `method = "sample"`. When using `normalize_by_ncells = TRUE`, `normalize.method` is automatically set to `"none"` and the `min.count` threshold should be adjusted to match the scaled count values (for example, `min.count = 1` instead of the default `5`).
+When the number of cells varies substantially across samples for a given cell type, this can inflate library size differences between pseudo-bulk samples and affect downstream normalization. The `normalize_by_ncells` option addresses this by scaling each sample's counts to a CP1K (per-1000-cells) basis before analysis.
+
+Before deciding whether to use `normalize_by_ncells`, it is recommended to check the distribution of cell counts across samples:
+
+```r
+# Check cell count distribution before running LPE_pseudobulk
+table(seurat_obj$sample_id, seurat_obj$celltype)
+```
+
+If cell counts differ by more than approximately 2-fold across samples for a given cell type, `normalize_by_ncells = TRUE` is recommended.
+
+---
+
+## Notes on result interpretation
+
+The nominal p-values and Benjamini-Hochberg adjusted p-values (`q.value`) produced by LPEseq2 should be treated as **approximate exploratory ranking measures for candidate gene prioritization**, not as calibrated false discovery rate guarantees. This is because the LPE-based test statistic does not follow a conventional parametric null distribution under low-replicate conditions.
+
+LPEseq2 is intended for pilot or low-replicate RNA-seq studies where conventional per-gene dispersion estimation may be unreliable. When adequate replication is available (five or more samples per group), established methods such as DESeq2, edgeR, or limma-voom should be used instead, as they offer more rigorous dispersion modeling and better-calibrated error rates.
+
+Biological follow-up validation is recommended for all candidate genes prioritized by LPEseq2.
+
+---
 
 ## Trimming options
 
-LPEseq2 supports boxplot/IQR-based outlier trimming for pairwise values used in variance trend estimation.
+LPEseq2 supports IQR-based outlier trimming for pairwise values used in variance trend estimation.
 
-| Method | Description                                                                                                                                             |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `iqr`  | Applies the conventional 1.5 × IQR boxplot rule within expression-intensity A-bins after pooling within-group and between-group-derived pairwise values |
-| `none` | Uses pairwise values without outlier trimming                                                                                                           |
+| Method | Description |
+| --- | --- |
+| `iqr` | Applies the conventional 1.5 × IQR boxplot rule within expression-intensity A-bins after pooling within-group and between-group-derived pairwise values |
+| `none` | Uses all pairwise values without outlier trimming |
 
 When `trim.method = "iqr"`, LPEseq2 first pools within-group pairwise values and between-group-derived values. The pooled values are divided into expression-intensity A-bins, and the conventional boxplot rule is applied within each bin:
 
-```r
+```
 lower_bound = Q1 - 1.5 * IQR
 upper_bound = Q3 + 1.5 * IQR
 ```
 
 Outlier detection is performed on the M-value scale because M is the scale used for local pooled variance estimation.
 
-The `none` method does not remove pairwise values before variance trend estimation.
+---
 
 ## Output
 
 ### Output from `LPE_ANOVA()`
 
-`LPE_ANOVA()` returns a data frame containing gene-level test statistics.
-
-The output format depends on the selected analysis method, but the main columns are shared across methods.
+`LPE_ANOVA()` returns a data frame containing gene-level test statistics. The output format depends on the selected analysis method, but the main columns are shared across methods.
 
 #### Common output columns
 
-| Column       | Description                                                                                                                                                                                                             |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `gene`       | Gene identifier from the row names of the input expression matrix                                                                                                                                                       |
-| `mean`       | Mean expression value of the gene across samples                                                                                                                                                                        |
-| `var`        | Estimated variance used in the test. For LPE-ANOVA, this is the local pooled variance predicted from the intensity-dependent variance trend. For standard ANOVA, this corresponds to the within-group residual variance |
-| `MS_between` | Between-group mean square                                                                                                                                                                                               |
-| `F`          | Test statistic                                                                                                                                                                                                          |
-| `p.value`    | Raw p-value                                                                                                                                                                                                             |
-| `q.value`    | Benjamini-Hochberg adjusted p-value                                                                                                                                                                                     |
-| `method`     | Analysis method used for the result                                                                                                                                                                                     |
+| Column | Description |
+| --- | --- |
+| `gene` | Gene identifier from the row names of the input expression matrix |
+| `mean` | Mean expression value of the gene across samples |
+| `var` | Estimated variance used in the test. For LPE-ANOVA, this is the intensity-dependent pooled variance σ²(A) predicted from the spline. For standard ANOVA, this is the within-group residual variance. |
+| `MS_between` | Between-group mean square (numerator of the test statistic) |
+| `F` | Test statistic |
+| `p.value` | Raw p-value |
+| `q.value` | Benjamini-Hochberg adjusted p-value. Treat as an approximate ranking measure, not a calibrated FDR guarantee. |
+| `method` | Analysis method used for the gene |
 
 #### Additional columns for standard one-way ANOVA
 
-When `analysis.method = "standard_anova"` is used, the result may also include the following columns:
+When `analysis.method = "standard_anova"` is used, the result may also include:
 
-| Column      | Description                    |
-| ----------- | ------------------------------ |
-| `MS_within` | Within-group mean square       |
-| `df1`       | Numerator degrees of freedom   |
-| `df2`       | Denominator degrees of freedom |
+| Column | Description |
+| --- | --- |
+| `MS_within` | Within-group mean square |
+| `df1` | Numerator degrees of freedom |
+| `df2` | Denominator degrees of freedom |
 
 #### Analysis method information
 
-The selected analysis method is stored as an attribute of the result object.
-
 ```r
-attr(res, "analysis.method")
-```
-
-If `analysis.method = "auto"` is used, this attribute shows which method was actually selected after checking the group sample sizes.
-
-The originally requested analysis mode can also be stored as:
-
-```r
-attr(res, "requested.analysis.method")
-```
-
-The sample-size threshold used for auto mode can be checked with:
-
-```r
-attr(res, "standard.min.group.n")
+attr(res, "analysis.method")           # method actually used
+attr(res, "requested.analysis.method") # method originally requested
+attr(res, "standard.min.group.n")      # threshold used for auto mode
 ```
 
 #### Variance trend object
-
-The fitted variance trend object is stored as:
 
 ```r
 attr(res, "var.spline")
 ```
 
-This is a list containing the following elements.
-
-| Element  | Description                                     |
-| -------- | ----------------------------------------------- |
-| `type`   | `"smooth.spline"`                               |
-| `object` | The fitted `smooth.spline` object               |
-| `x_min`  | Lower boundary of the training expression range |
-| `x_max`  | Upper boundary of the training expression range |
+| Element | Description |
+| --- | --- |
+| `type` | `"smooth.spline"` |
+| `object` | The fitted `smooth.spline` object |
+| `x_min` | Lower boundary of the training expression range |
+| `x_max` | Upper boundary of the training expression range |
 
 When `analysis.method = "standard_anova"` is selected, `attr(res, "var.spline")` is `NULL`.
 
 #### Trimming information
 
-When LPE-ANOVA is used, trimming information is stored as an attribute of the result object.
-
 ```r
 attr(res, "trim.info")
 ```
 
-This information includes the trimming method, the IQR rule information, the number of pairwise values before and after trimming, and the number of removed values.
+For `trim.method = "iqr"`, the threshold table includes:
 
-For `trim.method = "iqr"`, the threshold table may include:
+| Column | Description |
+| --- | --- |
+| `bin` | Expression-intensity A-bin index |
+| `A_low` | Lower boundary of the A-bin |
+| `A_high` | Upper boundary of the A-bin |
+| `Q1` | First quartile of M values within the bin |
+| `Q3` | Third quartile of M values within the bin |
+| `IQR` | Interquartile range (`Q3 - Q1`) |
+| `lower_bound` | Lower outlier boundary (`Q1 - 1.5 * IQR`) |
+| `upper_bound` | Upper outlier boundary (`Q3 + 1.5 * IQR`) |
+| `n_values` | Number of pairwise values in the bin |
+| `n_within` | Number of within-group pairwise values in the bin |
+| `n_between` | Number of between-group-derived values in the bin |
+| `n_removed` | Total number of removed values in the bin |
+| `n_within_removed` | Number of removed within-group values |
+| `n_between_removed` | Number of removed between-group-derived values |
 
-| Column              | Description                                               |
-| ------------------- | --------------------------------------------------------- |
-| `bin`               | Expression-intensity A-bin index                          |
-| `A_low`             | Lower boundary of the A-bin                               |
-| `A_high`            | Upper boundary of the A-bin                               |
-| `Q1`                | First quartile of M values within the bin                 |
-| `Q3`                | Third quartile of M values within the bin                 |
-| `IQR`               | Interquartile range, calculated as `Q3 - Q1`              |
-| `lower_bound`       | Lower outlier boundary, calculated as `Q1 - 1.5 * IQR`    |
-| `upper_bound`       | Upper outlier boundary, calculated as `Q3 + 1.5 * IQR`    |
-| `n_values`          | Number of pairwise values in the bin                      |
-| `n_within`          | Number of within-group pairwise values in the bin         |
-| `n_between`         | Number of between-group-derived values in the bin         |
-| `n_removed`         | Total number of removed values in the bin                 |
-| `n_within_removed`  | Number of removed within-group values in the bin          |
-| `n_between_removed` | Number of removed between-group-derived values in the bin |
-
-When standard one-way ANOVA is selected, trimming information is not available because the LPE variance trend is not estimated.
-
-```r
-attr(res, "trim.info")
-```
-
-In this case, the trimming information is expected to be `NULL`.
+When `analysis.method = "standard_anova"` is selected, `attr(res, "trim.info")` is `NULL`.
 
 #### Variance trend information
 
-When LPE-ANOVA is used, variance trend information is stored as an attribute of the result object.
-
 ```r
-attr(res, "trend.info")
+attr(res, "trend.info")  # fitting method and degrees of freedom
+attr(res, "base.var")    # bin-level variance points used for trend fitting
 ```
 
-This includes the variance trend fitting method and the degrees of freedom used for spline fitting.
-
-The bin-level variance points used for trend fitting can be checked with:
-
-```r
-attr(res, "base.var")
-```
-
-This object contains the representative expression-intensity value and the estimated local pooled variance for each bin.
+---
 
 ### Output from `make_pseudobulk_from_seurat()`
 
-`make_pseudobulk_from_seurat()` returns a list containing pseudo-bulk count matrices and pseudo-bulk sample metadata.
+| Element | Description |
+| --- | --- |
+| `counts` | Full gene-by-pseudo-sample count matrix. Raw integer when `normalize_by_ncells = FALSE`; CP1K-scaled non-integer when `normalize_by_ncells = TRUE`. |
+| `metadata` | Pseudo-bulk sample metadata including condition, cell type, number of cells, library size, pseudo-bulk method, `normalize_by_ncells` flag, and `ncells_scale`. |
+| `counts_by_celltype` | If `split_by_celltype = TRUE`, a list of count matrices split by cell type. |
+| `metadata_by_celltype` | If `split_by_celltype = TRUE`, a list of metadata tables split by cell type. |
 
-| Element                | Description                                                                                                                                                                                         |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `counts`               | Full gene-by-pseudo-sample count matrix. Raw integer matrix when `normalize_by_ncells = FALSE`. Non-integer numeric matrix when `normalize_by_ncells = TRUE`.                                       |
-| `metadata`             | Pseudo-bulk sample metadata including condition, cell type, number of cells, library size, pseudo-bulk method, `normalize_by_ncells` flag, and `ncells_scale` value.                               |
-| `counts_by_celltype`   | If `split_by_celltype = TRUE`, a list of gene-by-pseudo-sample count matrices split by cell type.                                                                                                   |
-| `metadata_by_celltype` | If `split_by_celltype = TRUE`, a list of pseudo-bulk metadata tables split by cell type.                                                                                                            |
+---
 
 ### Output from `LPE_pseudobulk()`
 
-`LPE_pseudobulk()` returns a list containing pseudo-bulk count matrices, metadata, cell-type-specific LPEseq2 results, diagnostic summaries, and error messages.
+| Element | Description |
+| --- | --- |
+| `pseudobulk` | Full pseudo-bulk object returned by `make_pseudobulk_from_seurat()`. |
+| `counts_by_celltype` | Pseudo-bulk count matrices used for analysis, split by cell type. CP1K-scaled non-integer when `normalize_by_ncells = TRUE`. |
+| `metadata_by_celltype` | Pseudo-bulk sample metadata split by cell type. |
+| `prep_by_celltype` | Preprocessed LPEseq2 objects returned by `LPE_preprocess()`. |
+| `results_by_celltype` | Cell-type-specific differential expression result tables. |
+| `combined_result` | Combined result table across all successfully analyzed cell types. |
+| `diagnostics` | Diagnostic information including group sizes, pseudo-bulk sample counts, cell counts, and library sizes. |
+| `errors` | Error or skipped-analysis messages for cell types that could not be analyzed. |
+| `settings` | Analysis settings used in the run, including `normalize_by_ncells` and `ncells_scale`. |
 
-| Element                | Description                                                                                                                                                           |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pseudobulk`           | Full pseudo-bulk object returned by `make_pseudobulk_from_seurat()`.                                                                                                  |
-| `counts_by_celltype`   | Pseudo-bulk count matrices used for LPEseq2 analysis, split by cell type. Non-integer when `normalize_by_ncells = TRUE`.                                             |
-| `metadata_by_celltype` | Pseudo-bulk sample metadata split by cell type.                                                                                                                       |
-| `prep_by_celltype`     | Preprocessed LPEseq2 objects returned by `LPE_preprocess()`.                                                                                                         |
-| `results_by_celltype`  | Cell-type-specific differential expression result tables.                                                                                                             |
-| `combined_result`      | Combined result table across all successfully analyzed cell types.                                                                                                    |
-| `diagnostics`          | Diagnostic information including group sizes, number of pseudo-bulk samples, cell counts, and library sizes.                                                          |
-| `errors`               | Error or skipped-analysis messages for cell types that could not be analyzed.                                                                                         |
-| `settings`             | Analysis settings used in the run, including `normalize_by_ncells` and `ncells_scale`.                                                                                |
+---
 
 ## Website
 
-Package website: https://ldy0012.github.io/LPEseq2/
+Package website: <https://ldy0012.github.io/LPEseq2/>
 
 You can run LPEseq2 directly in the browser using the Shiny web tool:
 
 [Launch LPEseq2 Shiny Web Tool](https://ldy0012.shinyapps.io/lpeseq2app/)
+
+---
 
 ## License
 
