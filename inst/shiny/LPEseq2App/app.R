@@ -135,7 +135,7 @@ ui <- fluidPage(
           "Pairwise outlier trimming method",
           choices = c(
             "Pooled bin-wise IQR" = "iqr",
-            "Fixed D-value threshold (LPEseq1-style)" = "dvalue",
+            "Fixed D-value threshold (LPEseq1)" = "dvalue",
             "None" = "none"
           ),
           selected = "iqr"
