@@ -480,9 +480,9 @@ LPE_ANOVA_var <- function(expr,
     if (length(idx) > 1) {
       w <- W_all[idx]
       x <- M_all[idx]
-
       w_mean <- sum(w * x) / sum(w)
-      var.M[i - 1] <- sum(w * (x - w_mean)^2) / sum(w)
+      denom <- sum(w) - sum(w^2) / sum(w)
+      var.M[i - 1] <- sum(w * (x - w_mean)^2) / denom
       medianAs[i - 1] <- stats::median(A_all[idx])
     }
   }
