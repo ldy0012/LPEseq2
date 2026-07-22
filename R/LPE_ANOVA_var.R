@@ -12,26 +12,29 @@
 #' @param n.bin Number of quantile bins used for variance trend estimation.
 #' @param df Degrees of freedom for smoothing spline.
 #' @param trim.method Outlier trimming method applied to pairwise values
-#'   used for variance trend estimation. One of \code{"iqr"} or \code{"none"}.
-#'   \code{"iqr"} applies the conventional 1.5*IQR boxplot rule within
-#'   expression-intensity A-bins after pooling within-group and between-group
-#'   values. \code{"none"} performs no outlier trimming.
+#'   used for variance trend estimation. One of \code{"iqr"}, \code{"dvalue"},
+#'   or \code{"none"}. \code{"iqr"} applies the conventional 1.5*IQR boxplot
+#'   rule within expression-intensity A-bins after pooling within-group and
+#'   between-group values. \code{"dvalue"} applies a fixed global threshold
+#'   to the raw pairwise difference D (as in LPEseq1's non-replicate outlier
+#'   procedure, Gim et al. 2016): any pairwise value with |D| > d.threshold
+#'   is removed, independent of bin. \code{"none"} performs no outlier
+#'   trimming.
 #' @param use_weighted_between Logical. Whether to include weighted between-group
 #'   differences in variance trend estimation.
-#'
-#' @return A list containing \code{type}, \code{object}, \code{x_min},
-#'   and \code{x_max}. \code{object} is a \code{smooth.spline} object.
-#'   Trimming information is stored in \code{attr(result, "trim.info")},
-#'   trend information is stored in \code{attr(result, "trend.info")}, and
-#'   bin-level variance points are stored in \code{attr(result, "base.var")}.
+#' @param d.threshold Numeric. Fixed threshold applied to the raw pairwise
+#'   difference D when \code{trim.method = "dvalue"}. Default is 1.2,
+#'   matching the default reported in LPEseq1 (Gim et al. 2016). Ignored for
+#'   other trim.method values.
 #'
 #' @export
 LPE_ANOVA_var <- function(expr,
                           group,
                           n.bin = 100,
                           df = 10,
-                          trim.method = c("iqr", "none"),
-                          use_weighted_between = FALSE) {
+                          trim.method = c("iqr", "dvalue", "none"),
+                          use_weighted_between = FALSE,
+                          d.threshold = 1.2) {
 
   trim.method <- match.arg(trim.method)
 
@@ -73,6 +76,12 @@ LPE_ANOVA_var <- function(expr,
 
   if (k < 2) {
     stop("At least two groups are required")
+  }
+
+  if (trim.method == "dvalue") {
+    if (!is.numeric(d.threshold) || length(d.threshold) != 1 || d.threshold <= 0) {
+      stop("d.threshold must be a single positive numeric value")
+    }
   }
 
   split_index <- split(seq_along(group), group)
@@ -212,11 +221,11 @@ LPE_ANOVA_var <- function(expr,
   }
 
   # -----------------------------
-  # 5. pooled bin-wise IQR outlier trimming
-  #    Pool within- and between-derived values, then apply the conventional
-  #    1.5*IQR rule within A-bins.
-  #    IQR is calculated on M values because M is the scale used for
-  #    variance trend estimation.
+  # 5. outlier trimming (pooled bin-wise IQR, or fixed D-value threshold)
+  #    For trim.method = "iqr": pool within- and between-derived values,
+  #    then apply the conventional 1.5*IQR rule within A-bins (on the M scale).
+  #    For trim.method = "dvalue": apply a single fixed global threshold
+  #    to the raw D values, independent of bin (see block below).
   # -----------------------------
 
   M_all <- c(M_within, M_between)
@@ -244,10 +253,25 @@ LPE_ANOVA_var <- function(expr,
   n_within_before <- sum(source_all == "within")
   n_between_before <- sum(source_all == "between")
 
+  trim.rule <- switch(
+    trim.method,
+    iqr    = "pooled_bin_wise_boxplot_IQR_rule",
+    dvalue = "fixed_D_threshold",
+    none   = "none"
+  )
+
+  trim.scale <- switch(
+    trim.method,
+    iqr    = "M",
+    dvalue = "D",
+    none   = NA_character_
+  )
+
   trim.info <- list(
     method = trim.method,
-    rule = ifelse(trim.method == "iqr", "pooled_bin_wise_boxplot_IQR_rule", "none"),
-    trim.scale = ifelse(trim.method == "iqr", "M", NA_character_),
+    rule = trim.rule,
+    trim.scale = trim.scale,
+    d.threshold = if (trim.method == "dvalue") d.threshold else NA_real_,
     n_total_before = length(M_all),
     n_total_after = length(M_all),
     n_total_removed = 0,
@@ -370,6 +394,35 @@ LPE_ANOVA_var <- function(expr,
 
     trim.info$n_total_after <- length(M_all)
     trim.info$n_total_removed <- trim.info$n_total_before - trim.info$n_total_after
+  }
+
+  if (trim.method == "dvalue" && length(D_all) > 0) {
+
+    # LPEseq1-style: a single fixed global threshold on the raw
+    # pairwise difference D, applied uniformly regardless of bin.
+    keep_all <- abs(D_all) <= d.threshold
+
+    n_removed_within  <- sum(!keep_all & source_all == "within")
+    n_removed_between <- sum(!keep_all & source_all == "between")
+
+    M_all <- M_all[keep_all]
+    A_all <- A_all[keep_all]
+    W_all <- W_all[keep_all]
+    D_all <- D_all[keep_all]
+    source_all <- source_all[keep_all]
+
+    trim.info$n_within_after  <- sum(source_all == "within")
+    trim.info$n_between_after <- sum(source_all == "between")
+    trim.info$n_within_removed  <- n_removed_within
+    trim.info$n_between_removed <- n_removed_between
+    trim.info$n_total_after   <- length(M_all)
+    trim.info$n_total_removed <- trim.info$n_total_before - trim.info$n_total_after
+
+    trim.info$threshold.table <- data.frame(
+      d.threshold = d.threshold,
+      n_total_before = trim.info$n_total_before,
+      n_total_removed = trim.info$n_total_removed
+    )
   }
 
   # -----------------------------

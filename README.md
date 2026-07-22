@@ -399,6 +399,10 @@ res_lpe <- LPE_ANOVA(
 
 The `use_weighted_between` argument controls whether between-group-derived pairwise values are incorporated into variance trend estimation when within-group pairs are sparse. When `TRUE`, these values are included with IQR-based trimming to reduce contamination from true biological group differences. This option is particularly useful for non-replicated data where within-group pairs are unavailable.
 
+The `trim.method` argument controls outlier trimming for pairwise values
+used in variance trend estimation (`"iqr"`, `"dvalue"`, or `"none"`); see
+[Trimming options](#trimming-options) for details.
+
 ### Standard one-way ANOVA mode
 
 ```r
@@ -485,10 +489,11 @@ Biological follow-up validation is recommended for all candidate genes prioritiz
 
 LPEseq2 supports IQR-based outlier trimming for pairwise values used in variance trend estimation.
 
-| Method | Description |
-| --- | --- |
-| `iqr` | Applies the conventional 1.5 × IQR boxplot rule within expression-intensity A-bins after pooling within-group and between-group-derived pairwise values |
-| `none` | Uses all pairwise values without outlier trimming |
+| Method   | Description                                                                                                                                             |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `iqr`    | Applies the conventional 1.5 × IQR boxplot rule within expression-intensity A-bins after pooling within-group and between-group-derived pairwise values |
+| `dvalue` | Applies a single fixed threshold (`d.threshold`, default 1.2) to the raw pairwise difference D, following LPEseq1's non-replicate outlier procedure (Gim et al. 2016). Unlike `iqr`, this threshold is global and does not adapt per bin. |
+| `none`   | Uses pairwise values without outlier trimming                                                                                                           |
 
 When `trim.method = "iqr"`, LPEseq2 first pools within-group pairwise values and between-group-derived values. The pooled values are divided into expression-intensity A-bins, and the conventional boxplot rule is applied within each bin:
 
@@ -496,6 +501,7 @@ When `trim.method = "iqr"`, LPEseq2 first pools within-group pairwise values and
 lower_bound = Q1 - 1.5 * IQR
 upper_bound = Q3 + 1.5 * IQR
 ```
+When `trim.method = "dvalue"`, LPEseq2 removes any pairwise value whose raw difference D exceeds `d.threshold` in absolute value, prior to variance trend estimation. This reproduces the outlier-removal step of LPEseq1's non-replicate analysis (Gim et al. 2016), where D was thresholded at a fixed value (default 1.2) chosen empirically via reproducibility analysis across benchmark datasets. Users should verify whether this default is appropriate for their own normalization scale and log-transform.
 
 Outlier detection is performed on the M-value scale because M is the scale used for local pooled variance estimation.
 
@@ -577,6 +583,15 @@ For `trim.method = "iqr"`, the threshold table includes:
 | `n_removed` | Total number of removed values in the bin |
 | `n_within_removed` | Number of removed within-group values |
 | `n_between_removed` | Number of removed between-group-derived values |
+
+For `trim.method = "dvalue"`, the threshold table is a single-row summary
+(since the threshold is global rather than bin-specific):
+
+| Column | Description |
+| --- | --- |
+| `d.threshold` | The fixed threshold applied to the raw D values |
+| `n_total_before` | Total number of pairwise values before trimming |
+| `n_total_removed` | Total number of pairwise values removed |
 
 When `analysis.method = "standard_anova"` is selected, `attr(res, "trim.info")` is `NULL`.
 

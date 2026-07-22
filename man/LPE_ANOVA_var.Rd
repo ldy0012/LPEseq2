@@ -9,8 +9,9 @@ LPE_ANOVA_var(
   group,
   n.bin = 100,
   df = 10,
-  trim.method = c("iqr", "none"),
-  use_weighted_between = FALSE
+  trim.method = c("iqr", "dvalue", "none"),
+  use_weighted_between = FALSE,
+  d.threshold = 1.2
 )
 }
 \arguments{
@@ -23,20 +24,22 @@ LPE_ANOVA_var(
 \item{df}{Degrees of freedom for smoothing spline.}
 
 \item{trim.method}{Outlier trimming method applied to pairwise values
-used for variance trend estimation. One of \code{"iqr"} or \code{"none"}.
-\code{"iqr"} applies the conventional 1.5*IQR boxplot rule within
-expression-intensity A-bins after pooling within-group and between-group
-values. \code{"none"} performs no outlier trimming.}
+used for variance trend estimation. One of \code{"iqr"}, \code{"dvalue"},
+or \code{"none"}. \code{"iqr"} applies the conventional 1.5*IQR boxplot
+rule within expression-intensity A-bins after pooling within-group and
+between-group values. \code{"dvalue"} applies a fixed global threshold
+to the raw pairwise difference D (as in LPEseq1's non-replicate outlier
+procedure, Gim et al. 2016): any pairwise value with |D| > d.threshold
+is removed, independent of bin. \code{"none"} performs no outlier
+trimming.}
 
 \item{use_weighted_between}{Logical. Whether to include weighted between-group
 differences in variance trend estimation.}
-}
-\value{
-A list containing \code{type}, \code{object}, \code{x_min},
-and \code{x_max}. \code{object} is a \code{smooth.spline} object.
-Trimming information is stored in \code{attr(result, "trim.info")},
-trend information is stored in \code{attr(result, "trend.info")}, and
-bin-level variance points are stored in \code{attr(result, "base.var")}.
+
+\item{d.threshold}{Numeric. Fixed threshold applied to the raw pairwise
+difference D when \code{trim.method = "dvalue"}. Default is 1.2,
+matching the default reported in LPEseq1 (Gim et al. 2016). Ignored for
+other trim.method values.}
 }
 \description{
 This function estimates an intensity-dependent variance trend using

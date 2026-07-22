@@ -8,8 +8,9 @@ LPE_ANOVA(
   object,
   n.bin = 100,
   df = 10,
-  trim.method = c("iqr", "none"),
+  trim.method = c("iqr", "dvalue", "none"),
   use_weighted_between = FALSE,
+  d.threshold = 1.2,
   analysis.method = c("LPE", "standard_anova", "auto"),
   standard.min.group.n = 5,
   verbose = TRUE,
@@ -24,13 +25,16 @@ LPE_ANOVA(
 \item{df}{Degrees of freedom for smoothing spline.}
 
 \item{trim.method}{Outlier trimming method applied to pairwise values
-used for variance trend estimation. One of \code{"iqr"} or \code{"none"}.
-\code{"iqr"} applies the conventional 1.5*IQR boxplot rule within
-expression-intensity A-bins after pooling within-group and between-group
-values. \code{"none"} performs no outlier trimming.}
+used for variance trend estimation. One of \code{"iqr"}, \code{"dvalue"},
+or \code{"none"}. See \code{\link{LPE_ANOVA_var}} for details.}
 
 \item{use_weighted_between}{Logical. Whether to include weighted between-group
 differences in variance trend estimation.}
+
+\item{d.threshold}{Numeric. Fixed threshold applied to the raw pairwise
+difference D when \code{trim.method = "dvalue"}. Default 1.2, matching
+the default reported in LPEseq1 (Gim et al. 2016). Ignored for other
+\code{trim.method} values.}
 
 \item{analysis.method}{Analysis method. One of \code{"LPE"},
 \code{"standard_anova"}, or \code{"auto"}. \code{"LPE"} uses the

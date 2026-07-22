@@ -135,6 +135,7 @@ ui <- fluidPage(
           "Pairwise outlier trimming method",
           choices = c(
             "Pooled bin-wise IQR" = "iqr",
+            "Fixed D-value threshold (LPEseq1-style)" = "dvalue",
             "None" = "none"
           ),
           selected = "iqr"
@@ -144,6 +145,26 @@ ui <- fluidPage(
           "The IQR method pools within-group and between-group-derived pairwise values, ",
           "divides them into expression-intensity A-bins, and applies the conventional 1.5 within each bin. ",
           "Outlier detection is performed on the M-value scale used for variance trend estimation."
+        ),
+
+        conditionalPanel(
+          condition = "input.trim_method == 'dvalue'",
+
+          numericInput(
+            "d_threshold",
+            "D-value threshold",
+            value = 1.2,
+            min = 0,
+            step = 0.1
+          ),
+
+          helpText(
+            "Applies a single fixed threshold to the raw pairwise difference D, ",
+            "as in LPEseq1's non-replicate outlier procedure (Gim et al. 2016). ",
+            "Any pairwise value with |D| greater than this threshold is removed, ",
+            "regardless of expression-intensity bin. Default 1.2 was empirically ",
+            "tuned on specific benchmark datasets; consider adjusting for your data."
+          )
         ),
 
         checkboxInput(
@@ -367,6 +388,7 @@ server <- function(input, output, session) {
       lpe_df                 <- if (is.null(input$df)) 10 else input$df
       lpe_trim_method        <- if (is.null(input$trim_method)) "iqr" else input$trim_method
       lpe_use_weighted_between <- if (is.null(input$use_weighted_between)) FALSE else input$use_weighted_between
+      lpe_d_threshold        <- if (is.null(input$d_threshold)) 1.2 else input$d_threshold
       lpe_p_method           <- if (is.null(input$p_method)) "chisq" else input$p_method
       auto_min_group_n       <- if (is.null(input$standard_min_group_n)) 5 else input$standard_min_group_n
 
@@ -376,6 +398,7 @@ server <- function(input, output, session) {
         df                 = lpe_df,
         trim.method        = lpe_trim_method,
         use_weighted_between = lpe_use_weighted_between,
+        d.threshold        = lpe_d_threshold,
         analysis.method    = input$analysis_method,
         standard.min.group.n = auto_min_group_n,
         verbose            = FALSE,
@@ -814,6 +837,9 @@ sample4   Treatment"
       cat("spline df: ", input$df, "\n")
       cat("use_weighted_between: ", input$use_weighted_between, "\n")
       cat("trimming method: ", input$trim_method, "\n")
+      if (input$trim_method == "dvalue") {
+        cat("d.threshold: ", input$d_threshold, "\n")
+      }
       cat("p-value method: ", input$p_method, "\n")
     }
   })

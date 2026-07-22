@@ -7,12 +7,14 @@
 #' @param n.bin Number of quantile bins used for variance trend estimation.
 #' @param df Degrees of freedom for smoothing spline.
 #' @param trim.method Outlier trimming method applied to pairwise values
-#'   used for variance trend estimation. One of \code{"iqr"} or \code{"none"}.
-#'   \code{"iqr"} applies the conventional 1.5*IQR boxplot rule within
-#'   expression-intensity A-bins after pooling within-group and between-group
-#'   values. \code{"none"} performs no outlier trimming.
+#'   used for variance trend estimation. One of \code{"iqr"}, \code{"dvalue"},
+#'   or \code{"none"}. See \code{\link{LPE_ANOVA_var}} for details.
 #' @param use_weighted_between Logical. Whether to include weighted between-group
 #'   differences in variance trend estimation.
+#' @param d.threshold Numeric. Fixed threshold applied to the raw pairwise
+#'   difference D when \code{trim.method = "dvalue"}. Default 1.2, matching
+#'   the default reported in LPEseq1 (Gim et al. 2016). Ignored for other
+#'   \code{trim.method} values.
 #' @param analysis.method Analysis method. One of \code{"LPE"},
 #'   \code{"standard_anova"}, or \code{"auto"}. \code{"LPE"} uses the
 #'   local pooled error-based ANOVA. \code{"standard_anova"} uses conventional
@@ -23,7 +25,6 @@
 #'   standard one-way ANOVA when \code{analysis.method = "auto"}.
 #' @param verbose Logical. Whether to print progress messages.
 #' @param p.method P-value calculation method. One of \code{"chisq"} or \code{"F_inf"}.
-#'
 #' @return A data.frame containing gene-level test statistics. The selected
 #'   analysis method is stored in \code{attr(result, "analysis.method")}.
 #'   For LPE-ANOVA, trimming information, variance trend information,
@@ -36,8 +37,9 @@
 LPE_ANOVA <- function(object,
                       n.bin = 100,
                       df = 10,
-                      trim.method = c("iqr", "none"),
+                      trim.method = c("iqr", "dvalue", "none"),
                       use_weighted_between = FALSE,
+                      d.threshold = 1.2,
                       analysis.method = c("LPE", "standard_anova", "auto"),
                       standard.min.group.n = 5,
                       verbose = TRUE,
@@ -150,7 +152,8 @@ LPE_ANOVA <- function(object,
     n.bin = n.bin,
     df = df,
     trim.method = trim.method,
-    use_weighted_between = use_weighted_between
+    use_weighted_between = use_weighted_between,
+    d.threshold = d.threshold
   )
 
   trim.info <- attr(var.result, "trim.info")
