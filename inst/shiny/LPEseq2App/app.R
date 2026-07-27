@@ -67,6 +67,19 @@ ui <- fluidPage(
       ),
 
       selectInput(
+        "variance_eval",
+        "Variance evaluation method",
+        choices = c("Grand mean (default)" = "grand_mean",
+                    "Per-group (Welch)" = "per_group"),
+        selected = "grand_mean"
+      ),
+      helpText(
+        "Per-group evaluates variance separately for each group's own mean ",
+        "expression level, matching LPEseq1's approach for 2-group comparisons. ",
+        "Recommended when group means differ substantially in intensity."
+      ),
+
+      selectInput(
         "analysis_method",
         "Analysis method",
         choices = c(
@@ -402,7 +415,8 @@ server <- function(input, output, session) {
         analysis.method    = input$analysis_method,
         standard.min.group.n = auto_min_group_n,
         verbose            = FALSE,
-        p.method           = lpe_p_method
+        p.method           = lpe_p_method,
+        variance.eval = input$variance_eval
       )
 
       run_state("done")
@@ -770,7 +784,7 @@ sample4   Treatment"
   #
   #   # X-axis: log2-transformed between-group mean square
   #   # Y-axis: -log10 p-value
-  #   x <- log2(res$MS_between + .Machine$double.xmin)
+  #   xlab_txt <- if (attr(res, "variance.eval") == "per_group") "log2(Welch T-statistic)" else "log2(MS_between)"
   #   y <- -log10(res$p.value  + .Machine$double.xmin)
   #
   #   # Classify genes as significant or not

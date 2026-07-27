@@ -34,17 +34,15 @@
 #'   and \code{attr(result, "var.spline")}.
 #'
 #' @export
-LPE_ANOVA <- function(object,
-                      n.bin = 100,
-                      df = 10,
+LPE_ANOVA <- function(object, n.bin = 100, df = 10,
                       trim.method = c("iqr", "dvalue", "none"),
-                      use_weighted_between = FALSE,
-                      d.threshold = 1.2,
+                      use_weighted_between = FALSE, d.threshold = 1.2,
                       analysis.method = c("LPE", "standard_anova", "auto"),
-                      standard.min.group.n = 5,
-                      verbose = TRUE,
-                      p.method = c("chisq", "F_inf")) {
+                      standard.min.group.n = 5, verbose = TRUE,
+                      p.method = c("chisq", "F_inf"),
+                      variance.eval = c("grand_mean", "per_group")) {
 
+  variance.eval <- match.arg(variance.eval)
   trim.method <- match.arg(trim.method)
   analysis.method <- match.arg(analysis.method)
   p.method <- match.arg(p.method)
@@ -162,53 +160,59 @@ LPE_ANOVA <- function(object,
 
   gene.mean <- rowMeans(expr, na.rm = TRUE)
 
-  pred.var <- fixbounds.predict.smooth.spline(
-    var.result$object,
-    gene.mean
-  )$y
-
-  positive_y <- var.result$object$y[
-    is.finite(var.result$object$y) & var.result$object$y > 0
-  ]
-
-  if (length(positive_y) == 0) {
-    stop("Variance spline produced no positive fitted values")
+  if (variance.eval == "grand_mean") {
+    pred.var <- fixbounds.predict.smooth.spline(var.result$object, gene.mean)$y
+  } else {
+    group.levels <- levels(group)
+    group.means <- sapply(group.levels, function(g) {
+      rowMeans(expr[, group == g, drop = FALSE], na.rm = TRUE)
+    })
+    group.vars <- sapply(seq_len(k), function(i) {
+      fixbounds.predict.smooth.spline(var.result$object, group.means[, i])$y
+    })
   }
 
+  positive_y <- var.result$object$y[is.finite(var.result$object$y) & var.result$object$y > 0]
   var_floor <- min(positive_y, na.rm = TRUE)
-  pred.var[!is.finite(pred.var)] <- var_floor
-  pred.var <- pmax(pred.var, var_floor)
+
+  if (variance.eval == "grand_mean") {
+    pred.var[!is.finite(pred.var)] <- var_floor
+    pred.var <- pmax(pred.var, var_floor)
+  } else {
+    group.vars[!is.finite(group.vars)] <- var_floor
+    group.vars <- pmax(group.vars, var_floor)
+  }
 
   # -----------------------------
   # 3. between-group mean square
   # -----------------------------
 
-  MS_between <- apply(expr, 1, function(x) {
-    group_means <- tapply(x, group, mean)
-    grand_mean <- mean(x)
-
-    sum(as.numeric(n_i) * (group_means - grand_mean)^2) / (k - 1)
-  })
-
-  Fstat <- MS_between / pred.var
+  if (variance.eval == "grand_mean") {
+    MS_between <- apply(expr, 1, function(x) {
+      group_means <- tapply(x, group, mean)
+      grand_mean <- mean(x)
+      sum(as.numeric(n_i) * (group_means - grand_mean)^2) / (k - 1)
+    })
+    Fstat <- MS_between / pred.var
+  } else {
+    n_i_vec <- as.numeric(n_i)
+    w <- sweep(1 / group.vars, 2, n_i_vec, "*")
+    weighted.mean <- rowSums(w * group.means) / rowSums(w)
+    T.stat <- rowSums(w * (group.means - weighted.mean)^2)
+  }
 
   # -----------------------------
   # 4. p-value calculation
   # -----------------------------
 
-  if (p.method == "chisq") {
-    p.val <- stats::pchisq(
-      (k - 1) * Fstat,
-      df = k - 1,
-      lower.tail = FALSE
-    )
+  if (variance.eval == "grand_mean") {
+    if (p.method == "chisq") {
+      p.val <- stats::pchisq((k - 1) * Fstat, df = k - 1, lower.tail = FALSE)
+    } else {
+      p.val <- stats::pf(Fstat, df1 = k - 1, df2 = 1e6, lower.tail = FALSE)
+    }
   } else {
-    p.val <- stats::pf(
-      Fstat,
-      df1 = k - 1,
-      df2 = 1e6,
-      lower.tail = FALSE
-    )
+    p.val <- stats::pchisq(T.stat, df = k - 1, lower.tail = FALSE)
   }
 
   p.val[!is.finite(p.val)] <- 1
@@ -230,17 +234,21 @@ LPE_ANOVA <- function(object,
     gene_id <- paste0("gene_", seq_len(nrow(expr)))
   }
 
-  res <- data.frame(
-    gene = gene_id,
-    mean = gene.mean,
-    var = pred.var,
-    MS_between = MS_between,
-    F = Fstat,
-    p.value = p.val,
-    q.value = adj.p,
-    method = "LPE",
-    row.names = NULL
-  )
+  if (variance.eval == "grand_mean") {
+    res <- data.frame(
+      gene = gene_id, mean = gene.mean, var = pred.var,
+      MS_between = MS_between, F = Fstat,
+      p.value = p.val, q.value = adj.p, method = "LPE", row.names = NULL
+    )
+  } else {
+    res <- data.frame(
+      gene = gene_id, mean = gene.mean,
+      var = 1 / rowSums(w),
+      MS_between = T.stat,
+      F = T.stat / (k - 1),
+      p.value = p.val, q.value = adj.p, method = "LPE_Welch", row.names = NULL
+    )
+  }
 
   attr(res, "analysis.method") <- "LPE"
   attr(res, "requested.analysis.method") <- analysis.method

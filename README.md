@@ -526,6 +526,15 @@ Outlier detection is performed on the M-value scale because M is the scale used 
 | `q.value` | Benjamini-Hochberg adjusted p-value. Treat as an approximate ranking measure, not a calibrated FDR guarantee. |
 | `method` | Analysis method used for the gene |
 
+#### Variance evaluation method
+
+`variance.eval` controls how the intensity-dependent variance is evaluated:
+
+| Value | Description |
+| --- | --- |
+| `"grand_mean"` (default) | Variance is evaluated once at the grand mean expression level, shared across all groups. Matches classical equal-variance ANOVA. |
+| `"per_group"` | Variance is evaluated separately at each group's own mean expression level (Welch-style weighted ANOVA). Mathematically equivalent to LPEseq1's z-test when k=2. Recommended when group means differ substantially in expression intensity. |
+
 #### Additional columns for standard one-way ANOVA
 
 When `analysis.method = "standard_anova"` is used, the result may also include:

@@ -14,7 +14,8 @@ LPE_ANOVA(
   analysis.method = c("LPE", "standard_anova", "auto"),
   standard.min.group.n = 5,
   verbose = TRUE,
-  p.method = c("chisq", "F_inf")
+  p.method = c("chisq", "F_inf"),
+  variance.eval = c("grand_mean", "per_group")
 )
 }
 \arguments{
