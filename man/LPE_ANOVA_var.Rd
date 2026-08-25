@@ -43,9 +43,22 @@ other trim.method values.}
 }
 \description{
 This function estimates an intensity-dependent variance trend using
-within-group pairwise differences. Optionally, weighted between-group
-differences can be included when replicate information is limited.
-When trimming is enabled, the conventional 1.5*IQR rule is applied
-within expression-intensity bins to pairwise values used for variance
-trend estimation.
+within-group pairwise differences. Following LPEseq1 (Gim et al. 2016),
+each raw pairwise difference D is symmetrized to \eqn{\pm D} before
+quantile binning, so that the pooled difference distribution used for
+variance estimation is centered at zero by construction rather than by
+subtracting an empirically estimated mean. Optionally, weighted
+between-group differences can be included when replicate information is
+limited. When trimming is enabled, the conventional 1.5*IQR rule is
+applied within expression-intensity bins to pairwise values used for
+variance trend estimation.
+}
+\note{
+Pairwise D/M values are symmetrized (\eqn{\pm D}) before trimming
+and quantile binning, following LPEseq1's approach of fixing the
+difference distribution's center at zero. Consequently, the pairwise
+counts reported in the returned \code{trim.info} (e.g.
+\code{n_total_before}, \code{n_within_before}, \code{n_between_before},
+and their \verb{_after}/\verb{_removed} counterparts) are twice the
+number of underlying replicate/group pairs.
 }

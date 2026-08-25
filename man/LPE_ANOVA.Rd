@@ -50,9 +50,22 @@ standard one-way ANOVA when \code{analysis.method = "auto"}.}
 \item{verbose}{Logical. Whether to print progress messages.}
 
 \item{p.method}{P-value calculation method. One of \code{"chisq"} or \code{"F_inf"}.}
+
+\item{variance.eval}{Character string specifying how the fitted variance
+trend is evaluated for the test statistic. One of \code{"grand_mean"}
+or \code{"per_group"}. \code{"grand_mean"} (default) evaluates the
+variance trend once at each gene's overall (grand) mean expression and
+uses it as a single pooled variance in a standard one-way ANOVA-style
+F statistic. \code{"per_group"} evaluates the variance trend
+separately at each group's mean expression and combines the
+group-specific variances via inverse-variance weighting into a
+Welch-type unequal-variance test statistic (returned with
+\code{method = "LPE_Welch"} and a different \code{var}/\code{MS_between}
+definition; see Details).}
 }
 \value{
 A data.frame containing gene-level test statistics. The selected
+analysis method is stored in \code{attr(result, "analysis.method")}.
 analysis method is stored in \code{attr(result, "analysis.method")}.
 For LPE-ANOVA, trimming information, variance trend information,
 bin-level variance points, and the fitted variance trend object are

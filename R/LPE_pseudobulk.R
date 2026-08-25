@@ -53,7 +53,13 @@
 #'   variance trend estimation.
 #' @param df Numeric value specifying the degrees of freedom for spline smoothing.
 #' @param trim.method Character string specifying the trimming method used during
-#'   variance trend estimation. One of \code{"iqr"} or \code{"none"}.
+#'   variance trend estimation. One of \code{"iqr"}, \code{"dvalue"}, or
+#'   \code{"none"}. \code{"dvalue"} applies a fixed global threshold to the
+#'   raw pairwise difference D, following LPEseq1's non-replicate outlier
+#'   procedure (Gim et al. 2016). See \code{\link{LPE_ANOVA_var}} for details.
+#' @param d.threshold Numeric. Fixed threshold applied to the raw pairwise
+#'   difference D when \code{trim.method = "dvalue"}. Default 1.2, matching
+#'   \code{\link{LPE_ANOVA}}. Ignored for other \code{trim.method} values.
 #' @param use_weighted_between Logical. Whether to use weighted between-group
 #'   variance information in LPE-ANOVA.
 #' @param p.method Character string specifying the p-value calculation method.
@@ -161,7 +167,8 @@ LPE_pseudobulk <- function(
     standard.min.group.n = 5,
     n.bin = 100,
     df = 10,
-    trim.method = c("iqr", "none"),
+    trim.method = c("iqr", "dvalue", "none"),
+    d.threshold = 1.2,
     use_weighted_between = FALSE,
     p.method = c("chisq", "F_inf"),
     verbose = TRUE
@@ -171,6 +178,12 @@ LPE_pseudobulk <- function(
   analysis.method <- match.arg(analysis.method)
   trim.method <- match.arg(trim.method)
   p.method <- match.arg(p.method)
+
+  if (trim.method == "dvalue") {
+    if (!is.numeric(d.threshold) || length(d.threshold) != 1 || d.threshold <= 0) {
+      stop("d.threshold must be a single positive numeric value")
+    }
+  }
 
   # ------------------------------------------------------------
   #    Validate normalize_by_ncells arguments
@@ -360,11 +373,11 @@ LPE_pseudobulk <- function(
           n.bin = n.bin,
           df = df,
           trim.method = trim.method,
+          d.threshold = d.threshold,
           use_weighted_between = use_weighted_between,
           p.method = p.method,
           verbose = verbose
         )
-
         # Add cell type and pseudo-bulk method information
         res$celltype <- ct
         res$requested_pseudobulk_method <- method
@@ -437,6 +450,7 @@ LPE_pseudobulk <- function(
         n.bin = n.bin,
         df = df,
         trim.method = trim.method,
+        d.threshold = d.threshold,
         use_weighted_between = use_weighted_between,
         p.method = p.method
       )

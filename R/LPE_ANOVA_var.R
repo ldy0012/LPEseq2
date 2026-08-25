@@ -1,11 +1,16 @@
 #' Estimate Intensity-Dependent Variance Trend for LPE-ANOVA
 #'
 #' This function estimates an intensity-dependent variance trend using
-#' within-group pairwise differences. Optionally, weighted between-group
-#' differences can be included when replicate information is limited.
-#' When trimming is enabled, the conventional 1.5*IQR rule is applied
-#' within expression-intensity bins to pairwise values used for variance
-#' trend estimation.
+#' within-group pairwise differences. Following LPEseq1 (Gim et al. 2016),
+#' each raw pairwise difference D is symmetrized to \eqn{\pm D} before
+#' quantile binning, so that the pooled difference distribution used for
+#' variance estimation is centered at zero by construction rather than by
+#' subtracting an empirically estimated mean. Optionally, weighted
+#' between-group differences can be included when replicate information is
+#' limited. When trimming is enabled, the conventional 1.5*IQR rule is
+#' applied within expression-intensity bins to pairwise values used for
+#' variance trend estimation.
+#'
 #'
 #' @param expr A numeric expression matrix with genes as rows and samples as columns.
 #' @param group A factor or vector indicating sample group labels.
@@ -26,6 +31,13 @@
 #'   difference D when \code{trim.method = "dvalue"}. Default is 1.2,
 #'   matching the default reported in LPEseq1 (Gim et al. 2016). Ignored for
 #'   other trim.method values.
+#' @note Pairwise D/M values are symmetrized (\eqn{\pm D}) before trimming
+#'   and quantile binning, following LPEseq1's approach of fixing the
+#'   difference distribution's center at zero. Consequently, the pairwise
+#'   counts reported in the returned \code{trim.info} (e.g.
+#'   \code{n_total_before}, \code{n_within_before}, \code{n_between_before},
+#'   and their \verb{_after}/\verb{_removed} counterparts) are twice the
+#'   number of underlying replicate/group pairs.
 #'
 #' @export
 LPE_ANOVA_var <- function(expr,
@@ -103,6 +115,11 @@ LPE_ANOVA_var <- function(expr,
   # -----------------------------
   # 2. within-group pairwise differences
   #    These are genuine replicate-based residual differences.
+  #    Following LPEseq1 (Gim et al. 2016), each raw difference D is
+  #    symmetrized to +-D (mirrored with the same A and weight) so that
+  #    the pooled M distribution used for variance estimation is centered
+  #    at zero by construction. As a result, all pairwise counts recorded
+  #    below (and in trim.info) are twice the number of underlying pairs.
   #    If trim.method = "iqr", they will be pooled with between-derived
   #    values and trimmed within expression-intensity A-bins later.
   # -----------------------------
@@ -120,11 +137,14 @@ LPE_ANOVA_var <- function(expr,
         yi <- y[comb[1, ]]
         yj <- y[comb[2, ]]
 
-        D_within <- c(D_within, yi - yj)
+        d_raw <- yi - yj
+        a_val <- (yi + yj) / 2
+        w_val <- rep(1, ncol(comb))
 
-        M_within <- c(M_within, (yi - yj) / sqrt(2))
-        A_within <- c(A_within, (yi + yj) / 2)
-        W_within <- c(W_within, rep(1, ncol(comb)))
+        D_within <- c(D_within, d_raw, -d_raw)
+        M_within <- c(M_within, d_raw / sqrt(2), -d_raw / sqrt(2))
+        A_within <- c(A_within, a_val, a_val)
+        W_within <- c(W_within, w_val, w_val)
       }
     }
   }
@@ -179,10 +199,10 @@ LPE_ANOVA_var <- function(expr,
 
         alpha <- min(n1, n2) / (n1 + n2)
 
-        D_between <- c(D_between, d_raw)
-        M_between <- c(M_between, m_star)
-        A_between <- c(A_between, a_val)
-        W_between <- c(W_between, alpha)
+        D_between <- c(D_between, d_raw, -d_raw)
+        M_between <- c(M_between, m_star, -m_star)
+        A_between <- c(A_between, a_val, a_val)
+        W_between <- c(W_between, alpha, alpha)
       }
     }
   }
@@ -212,11 +232,14 @@ LPE_ANOVA_var <- function(expr,
       yi <- y[comb_g[1, ]]
       yj <- y[comb_g[2, ]]
 
-      D_between <- c(D_between, yi - yj)
+      d_raw <- yi - yj
+      a_val <- (yi + yj) / 2
+      w_val <- rep(1, ncol(comb_g))
 
-      M_between <- c(M_between, (yi - yj) / sqrt(2))
-      A_between <- c(A_between, (yi + yj) / 2)
-      W_between <- c(W_between, rep(1, ncol(comb_g)))
+      D_between <- c(D_between, d_raw, -d_raw)
+      M_between <- c(M_between, d_raw / sqrt(2), -d_raw / sqrt(2))
+      A_between <- c(A_between, a_val, a_val)
+      W_between <- c(W_between, w_val, w_val)
     }
   }
 
@@ -480,9 +503,7 @@ LPE_ANOVA_var <- function(expr,
     if (length(idx) > 1) {
       w <- W_all[idx]
       x <- M_all[idx]
-      w_mean <- sum(w * x) / sum(w)
-      denom <- sum(w) - sum(w^2) / sum(w)
-      var.M[i - 1] <- sum(w * (x - w_mean)^2) / denom
+      var.M[i - 1] <- sum(w * x^2) / sum(w)
       medianAs[i - 1] <- stats::median(A_all[idx])
     }
   }
