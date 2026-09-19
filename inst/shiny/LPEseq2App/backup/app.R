@@ -2,161 +2,24 @@ options(shiny.maxRequestSize = 100 * 1024^2)
 
 library(shiny)
 library(DT)
-library(bslib)
 library(LPEseq2)
 
-# ------------------------------------------------------------
-#    Theme: clean grayscale surface + single accent color (blue)
-# ------------------------------------------------------------
-lpe_theme <- bslib::bs_theme(
-  version = 5,
-  bg = "#FAFAFA",
-  fg = "#1F2328",
-  primary = "#2563EB",
-  secondary = "#6B7280",
-  success = "#16A34A",
-  danger = "#DC2626",
-  warning = "#D97706",
-  info = "#2563EB",
-  base_font = bslib::font_google("Inter"),
-  heading_font = bslib::font_google("Inter", wght = "600"),
-  code_font = bslib::font_google("JetBrains Mono"),
-  "border-radius" = "10px",
-  "border-color" = "#E5E7EB"
-)
-
 ui <- fluidPage(
-  theme = lpe_theme,
   tags$head(
     tags$style(HTML("
-      body {
-        color: #1F2328;
-      }
-
-      /* ---------- header ---------- */
-      .lpe-header {
-        padding: 20px 0 16px 0;
-        margin-bottom: 24px;
-        border-bottom: 1px solid #E5E7EB;
-      }
-      .lpe-header h1 {
-        font-size: 1.6rem;
-        font-weight: 700;
-        margin: 0 0 4px 0;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-      .lpe-header h1 .fa, .lpe-header h1 svg {
-        color: #2563EB;
-      }
-      .lpe-header p {
-        margin: 0;
-        color: #6B7280;
-        font-size: 0.92rem;
-      }
-
-      /* ---------- sidebar card ---------- */
-      .well {
-        background-color: #FFFFFF;
-        border: 1px solid #E5E7EB;
-        border-radius: 12px;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.03);
-        padding: 20px;
-      }
-
-      .lpe-section-title {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 0.92rem;
-        font-weight: 700;
-        color: #1F2328;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-        margin: 24px 0 14px 0;
-        padding-bottom: 8px;
-        border-bottom: 2px solid rgba(37, 99, 235, 0.15);
-      }
-      .lpe-section-title:first-child { margin-top: 0; }
-      .lpe-section-title .badge-num {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 20px;
-        height: 20px;
-        flex: 0 0 20px;
-        border-radius: 50%;
-        background: #2563EB;
-        color: #FFFFFF;
-        font-size: 0.7rem;
-        font-weight: 700;
-      }
-
-      /* ---------- form controls ---------- */
-      label, .control-label {
-        font-weight: 600;
-        font-size: 0.85rem;
-        color: #374151;
-      }
-
-      .form-control, .selectize-input {
-        border-radius: 8px;
-        border-color: #D1D5DB;
-      }
-      .form-control:focus, .selectize-input.focus {
-        border-color: #2563EB;
-        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
-      }
-
-      .help-block {
-        font-size: 0.78rem;
-        color: #6B7280;
-        line-height: 1.4;
-      }
-
-      /* ---------- buttons ---------- */
-      #run {
-        width: 100%;
-        padding: 10px 0;
-        font-weight: 700;
-        font-size: 0.95rem;
-        border-radius: 8px;
-        border: none;
-        background-color: #2563EB;
-        box-shadow: 0 1px 2px rgba(37, 99, 235, 0.3);
-      }
-      #run:hover, #run:focus {
-        background-color: #1D4ED8;
-      }
-
-      #download_results {
-        width: 100%;
-        border-radius: 8px;
-        font-weight: 600;
-        background-color: #FFFFFF;
-        border: 1px solid #D1D5DB;
-        color: #1F2328;
-      }
-      #download_results:hover {
-        background-color: #F3F4F6;
-        border-color: #9CA3AF;
-      }
-
-      /* ---------- run status ---------- */
       .run-status-running {
         color: #2563EB;
-        font-weight: 700;
+        font-weight: bold;
         padding: 8px 0;
       }
       .run-status-done {
         color: #16A34A;
-        font-weight: 700;
+        font-weight: bold;
         padding: 8px 0;
       }
       .run-status-error {
         color: #DC2626;
-        font-weight: 700;
+        font-weight: bold;
         padding: 8px 0;
       }
       @keyframes blink {
@@ -167,78 +30,13 @@ ui <- fluidPage(
       .blinking {
         animation: blink 1s infinite;
       }
-
-      /* ---------- tabs / main panel ---------- */
-      .nav-tabs {
-        border-bottom: 1px solid #E5E7EB;
-        gap: 2px;
-        flex-wrap: wrap;
-      }
-      .nav-tabs .nav-link {
-        border: none;
-        border-radius: 8px 8px 0 0;
-        color: #6B7280;
-        font-weight: 600;
-        font-size: 0.84rem;
-        padding: 10px 14px;
-      }
-      .nav-tabs .nav-link.active {
-        color: #2563EB;
-        background-color: #FFFFFF;
-        border-bottom: 2px solid #2563EB;
-      }
-      .nav-tabs .nav-link:hover:not(.active) {
-        color: #1F2328;
-        background-color: #F3F4F6;
-        border-color: transparent;
-      }
-
-      .tab-content {
-        background-color: #FFFFFF;
-        border: 1px solid #E5E7EB;
-        border-top: none;
-        border-radius: 0 0 12px 12px;
-        padding: 22px;
-      }
-
-      /* ---------- misc ---------- */
-      hr {
-        border-top: 1px solid #E5E7EB;
-        margin: 20px 0;
-      }
-
-      .gene-id-note {
-        background-color: #FEF9C3;
-        border-left: 4px solid #EAB308;
-        border-radius: 8px;
-        padding: 10px 14px;
-        margin-top: 6px;
-        font-size: 0.85rem;
-      }
-
-      pre, .shiny-text-output {
-        border-radius: 8px;
-        background-color: #F9FAFB;
-        border: 1px solid #E5E7EB;
-      }
-
-      table.dataTable {
-        font-size: 0.85rem;
-      }
     "))
   ),
-
-  div(
-    class = "lpe-header",
-    h1(icon("dna"), "LPEseq2"),
-    p("Local Pooled Error-Based ANOVA for RNA-Seq Count Data")
-  ),
+  titlePanel("LPEseq2: Local Pooled Error-Based ANOVA"),
 
   sidebarLayout(
     sidebarPanel(
-      width = 4,
-
-      div(class = "lpe-section-title", span(class = "badge-num", "1"), "Upload input files"),
+      h4("1. Upload input files"),
 
       fileInput("counts_file", "Upload counts file", accept = c(".csv", ".tsv", ".txt")),
       checkboxInput(
@@ -255,7 +53,9 @@ ui <- fluidPage(
 
       fileInput("meta_file", "Upload metadata file", accept = c(".csv", ".tsv", ".txt")),
 
-      div(class = "lpe-section-title", span(class = "badge-num", "2"), "Select analysis options"),
+      tags$hr(),
+
+      h4("2. Select analysis options"),
 
       uiOutput("group_var_ui"),
 
@@ -406,7 +206,6 @@ ui <- fluidPage(
       actionButton(
         "run",
         "Run Analysis",
-        icon = icon("play"),
         class = "btn-primary"
       ),
 
@@ -427,11 +226,9 @@ ui <- fluidPage(
     ),
 
     mainPanel(
-      width = 8,
       tabsetPanel(
         tabPanel(
           "Instructions",
-          icon = icon("circle-info"),
           h4("Input format"),
           p("Counts file: genes as rows and samples as columns."),
           p("Metadata file: samples as rows and variables as columns."),
@@ -446,45 +243,38 @@ ui <- fluidPage(
 
         tabPanel(
           "Counts preview",
-          icon = icon("table"),
           DTOutput("counts_preview")
         ),
 
         tabPanel(
           "Metadata preview",
-          icon = icon("list"),
           DTOutput("meta_preview")
         ),
 
         tabPanel(
           "Results",
-          icon = icon("chart-bar"),
           DTOutput("results_table")
         ),
 
         tabPanel(
           "Method info",
-          icon = icon("gear"),
           verbatimTextOutput("method_info")
         ),
 
         tabPanel(
           "Variance trend info",
-          icon = icon("chart-line"),
           verbatimTextOutput("trend_info"),
           DTOutput("base_var_table")
         ),
 
         tabPanel(
           "Trimming info",
-          icon = icon("filter"),
           verbatimTextOutput("trim_info"),
           DTOutput("trim_table")
         ),
 
         tabPanel(
           "Spline Plot",
-          icon = icon("chart-area"),
           plotOutput("spline_plot", height = "500px"),
           helpText("Blue dots: bin-level variance estimates | Red line: fitted variance trend spline")
         ),
@@ -507,7 +297,6 @@ ui <- fluidPage(
 
         tabPanel(
           "Log",
-          icon = icon("terminal"),
           verbatimTextOutput("log_text"),
         )
       )
@@ -550,7 +339,13 @@ server <- function(input, output, session) {
     msg <- gene_id_warning()
     if (is.null(msg)) return(NULL)
     div(
-      class = "gene-id-note",
+      style = paste(
+        "background-color: #FEF9C3;",
+        "border-left: 4px solid #EAB308;",
+        "padding: 8px 12px;",
+        "margin-top: 4px;",
+        "font-size: 0.9em;"
+      ),
       icon("triangle-exclamation"),
       strong(" Note: "),
       msg
