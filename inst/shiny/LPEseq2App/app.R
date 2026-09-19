@@ -434,7 +434,7 @@ ui <- fluidPage(
       tabsetPanel(
         tabPanel(
           "Instructions",
-          icon = icon("circle-info"),
+          icon = icon("info-circle"),
           h4("Input format"),
           p("Counts file: genes as rows and samples as columns."),
           p("Metadata file: samples as rows and variables as columns."),
@@ -467,7 +467,7 @@ ui <- fluidPage(
 
         tabPanel(
           "Method info",
-          icon = icon("gear"),
+          icon = icon("cog"),
           verbatimTextOutput("method_info")
         ),
 
@@ -554,7 +554,7 @@ server <- function(input, output, session) {
     if (is.null(msg)) return(NULL)
     div(
       class = "gene-id-note",
-      icon("triangle-exclamation"),
+      icon("exclamation-triangle"),
       strong(" Note: "),
       msg
     )
