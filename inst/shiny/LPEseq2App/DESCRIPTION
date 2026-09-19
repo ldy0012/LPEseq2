@@ -1,46 +1,30 @@
-Package: LPEseq2
+Package: LPEseq2App
 Type: Package
-Title: Local Pooled Error-Based ANOVA for RNA-Seq Count Data
+Title: LPEseq2 Shiny Application
 Version: 0.0.1
-Authors@R: c(
-    person(
-        given = "Doye",
-        family = "Lim",
-        email = "doye730@gmail.com",
-        role = c("aut", "cre"),
-        comment = c(affiliation = "gimLAB")
-    ),
-    person(
-        given = "FirstName",
-        family = "LastName",
-        role = "ctb"
-    )
-    )
-Description: Provides preprocessing and differential expression analysis
-    functions for RNA-seq count data. The package supports raw count input
-    checking, low-count gene filtering, library-size, TMM, and DESeq2-based
-    normalization options. It provides local pooled error-based ANOVA for
-    small-sample multi-group analysis, conventional gene-wise one-way ANOVA
-    for larger sample sizes, automatic method selection based on group sample
-    size, and pooled bin-wise IQR or fixed-threshold outlier trimming for
-    variance trend estimation.
+Authors@R: person(
+    given = "Doye",
+    family = "Lim",
+    email = "doye730@gmail.com",
+    role = c("aut", "cre")
+)
+Description: Shiny web application for the LPEseq2 package.
 License: MIT + file LICENSE
-URL: https://ldy0012.github.io/LPEseq2/, https://github.com/ldy0012/LPEseq2
-BugReports: https://github.com/ldy0012/LPEseq2/issues
 Encoding: UTF-8
-Roxygen: list(markdown = TRUE)
 Imports:
     methods,
     stats,
-    utils
-Suggests:
+    utils,
     shiny,
     bslib,
     DT,
+    LPEseq2
+Suggests:
     Seurat,
     edgeR,
     DESeq2,
     Matrix,
     testthat (>= 3.0.0)
+Remotes:
+    ldy0012/LPEseq2
 Config/testthat/edition: 3
-Config/roxygen2/version: 8.0.0
