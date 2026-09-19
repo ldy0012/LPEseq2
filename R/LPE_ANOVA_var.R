@@ -282,7 +282,7 @@ LPE_ANOVA_var <- function(expr,
   trim.scale <- switch(
     trim.method,
     iqr    = "M",
-    dvalue = "D",
+    dvalue = "M",
     none   = NA_character_
   )
 
@@ -417,9 +417,17 @@ LPE_ANOVA_var <- function(expr,
 
   if (trim.method == "dvalue" && length(D_all) > 0) {
 
-    # LPEseq1-style: a single fixed global threshold on the raw
-    # pairwise difference D, applied uniformly regardless of bin.
-    keep_all <- abs(D_all) <= d.threshold
+    # LPEseq1-style fixed threshold, applied on the M scale (the value
+    # actually used for variance estimation) rather than raw D.
+    # d.threshold = 1.2 was calibrated for LPEseq1's n=1 (non-replicate)
+    # design, where M = D/sqrt(2) always holds. Applying it to raw D for
+    # between-group pairs with n > 1 would implicitly loosen the cutoff
+    # as n grows, because D (a group-mean difference) shrinks with n while
+    # M does not. Thresholding M directly keeps the cutoff equally strict
+    # regardless of group size, and is numerically identical to the old
+    # behavior whenever n1 = n2 = 1.
+    m.threshold <- d.threshold / sqrt(2)
+    keep_all <- abs(M_all) <= m.threshold
 
     n_removed_within  <- sum(!keep_all & source_all == "within")
     n_removed_between <- sum(!keep_all & source_all == "between")
@@ -439,6 +447,7 @@ LPE_ANOVA_var <- function(expr,
 
     trim.info$threshold.table <- data.frame(
       d.threshold = d.threshold,
+      m.threshold = m.threshold,
       n_total_before = trim.info$n_total_before,
       n_total_removed = trim.info$n_total_removed
     )
