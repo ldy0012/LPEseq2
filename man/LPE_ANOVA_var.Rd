@@ -40,9 +40,9 @@ differences in variance trend estimation.}
 
 \item{d.threshold}{Numeric. Threshold on the LPEseq1 raw-D scale, used to
 derive the fixed M-scale cutoff (\code{d.threshold/sqrt(2)}) applied
-when \code{trim.method = "dvalue"}. Default is 1.2, matching the
-default reported in LPEseq1 (Gim et al. 2016). Ignored for other
-trim.method values.}
+when \code{trim.method = "dvalue"}. Default 1.2, matching the default
+reported in LPEseq1 (Gim et al. 2016). Ignored for other
+\code{trim.method} values. See \code{\link{LPE_ANOVA_var}} for details.}
 }
 \description{
 This function estimates an intensity-dependent variance trend using

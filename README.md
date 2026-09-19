@@ -487,7 +487,7 @@ Biological follow-up validation is recommended for all candidate genes prioritiz
 
 ## Trimming options
 
-LPEseq2 supports IQR-based outlier trimming for pairwise values used in variance trend estimation.
+LPEseq2 supports IQR-based and fixed-threshold (dvalue) outlier trimming for pairwise values used in variance trend estimation.
 
 | Method   | Description                                                                                                                                             |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |

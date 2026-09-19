@@ -11,10 +11,11 @@
 #'   or \code{"none"}. See \code{\link{LPE_ANOVA_var}} for details.
 #' @param use_weighted_between Logical. Whether to include weighted between-group
 #'   differences in variance trend estimation.
-#' @param d.threshold Numeric. Fixed threshold applied to the raw pairwise
-#'   difference D when \code{trim.method = "dvalue"}. Default 1.2, matching
-#'   the default reported in LPEseq1 (Gim et al. 2016). Ignored for other
-#'   \code{trim.method} values.
+#' @param d.threshold Numeric. Threshold on the LPEseq1 raw-D scale, used to
+#'   derive the fixed M-scale cutoff (\code{d.threshold/sqrt(2)}) applied
+#'   when \code{trim.method = "dvalue"}. Default 1.2, matching the default
+#'   reported in LPEseq1 (Gim et al. 2016). Ignored for other
+#'   \code{trim.method} values. See \code{\link{LPE_ANOVA_var}} for details.
 #' @param analysis.method Analysis method. One of \code{"LPE"},
 #'   \code{"standard_anova"}, or \code{"auto"}. \code{"LPE"} uses the
 #'   local pooled error-based ANOVA. \code{"standard_anova"} uses conventional

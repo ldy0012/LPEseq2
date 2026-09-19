@@ -22,7 +22,8 @@ Description: Provides preprocessing and differential expression analysis
     normalization options. It provides local pooled error-based ANOVA for
     small-sample multi-group analysis, conventional gene-wise one-way ANOVA
     for larger sample sizes, automatic method selection based on group sample
-    size, and pooled bin-wise IQR outlier trimming.
+    size, and pooled bin-wise IQR or fixed-threshold outlier trimming for
+    variance trend estimation.
 License: MIT + file LICENSE
 URL: https://ldy0012.github.io/LPEseq2/, https://github.com/ldy0012/LPEseq2
 BugReports: https://github.com/ldy0012/LPEseq2/issues
