@@ -54,11 +54,14 @@
 #' @param df Numeric value specifying the degrees of freedom for spline smoothing.
 #' @param trim.method Character string specifying the trimming method used during
 #'   variance trend estimation. One of \code{"iqr"}, \code{"dvalue"}, or
-#'   \code{"none"}. \code{"dvalue"} applies a fixed global threshold to the
-#'   raw pairwise difference D, following LPEseq1's non-replicate outlier
-#'   procedure (Gim et al. 2016). See \code{\link{LPE_ANOVA_var}} for details.
-#' @param d.threshold Numeric. Fixed threshold applied to the raw pairwise
-#'   difference D when \code{trim.method = "dvalue"}. Default 1.2, matching
+#'   \code{"none"}. \code{"dvalue"} applies a fixed threshold to the M value
+#'   (the rescaled pairwise difference actually used for variance
+#'   estimation), derived from \code{d.threshold} as \code{d.threshold/sqrt(2)},
+#'   following LPEseq1's non-replicate outlier procedure (Gim et al. 2016).
+#'   See \code{\link{LPE_ANOVA_var}} for details.
+#' @param d.threshold Numeric. Threshold on the LPEseq1 raw-D scale, used to
+#'   derive the fixed M-scale cutoff applied when
+#'   \code{trim.method = "dvalue"}. Default 1.2, matching
 #'   \code{\link{LPE_ANOVA}}. Ignored for other \code{trim.method} values.
 #' @param use_weighted_between Logical. Whether to use weighted between-group
 #'   variance information in LPE-ANOVA.

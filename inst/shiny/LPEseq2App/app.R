@@ -172,11 +172,13 @@ ui <- fluidPage(
           ),
 
           helpText(
-            "Applies a single fixed threshold to the raw pairwise difference D, ",
-            "as in LPEseq1's non-replicate outlier procedure (Gim et al. 2016). ",
-            "Any pairwise value with |D| greater than this threshold is removed, ",
-            "regardless of expression-intensity bin. Default 1.2 was empirically ",
-            "tuned on specific benchmark datasets; consider adjusting for your data."
+            "Applies a fixed threshold on the M scale (the rescaled value actually ",
+            "used for variance estimation), converted from this D-value setting as ",
+            "threshold/sqrt(2), as in LPEseq1's non-replicate outlier procedure ",
+            "(Gim et al. 2016). Any pairwise value whose |M| exceeds the converted ",
+            "threshold is removed, regardless of expression-intensity bin or group ",
+            "size. Default 1.2 was empirically tuned on specific benchmark datasets; ",
+            "consider adjusting for your data."
           )
         ),
 

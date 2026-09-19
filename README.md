@@ -492,7 +492,7 @@ LPEseq2 supports IQR-based outlier trimming for pairwise values used in variance
 | Method   | Description                                                                                                                                             |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `iqr`    | Applies the conventional 1.5 × IQR boxplot rule within expression-intensity A-bins after pooling within-group and between-group-derived pairwise values |
-| `dvalue` | Applies a single fixed threshold (`d.threshold`, default 1.2) to the raw pairwise difference D, following LPEseq1's non-replicate outlier procedure (Gim et al. 2016). Unlike `iqr`, this threshold is global and does not adapt per bin. |
+| `dvalue` | Applies a single fixed threshold to the M value (the rescaled pairwise difference actually used for variance estimation), derived from `d.threshold` (default 1.2) as `d.threshold / sqrt(2)`, following LPEseq1's non-replicate outlier procedure (Gim et al. 2016). Unlike `iqr`, this threshold is global, does not adapt per bin, and is applied on the same rescaled M scale regardless of group size. |
 | `none`   | Uses pairwise values without outlier trimming                                                                                                           |
 
 When `trim.method = "iqr"`, LPEseq2 first pools within-group pairwise values and between-group-derived values. The pooled values are divided into expression-intensity A-bins, and the conventional boxplot rule is applied within each bin:
@@ -501,7 +501,7 @@ When `trim.method = "iqr"`, LPEseq2 first pools within-group pairwise values and
 lower_bound = Q1 - 1.5 * IQR
 upper_bound = Q3 + 1.5 * IQR
 ```
-When `trim.method = "dvalue"`, LPEseq2 removes any pairwise value whose raw difference D exceeds `d.threshold` in absolute value, prior to variance trend estimation. This reproduces the outlier-removal step of LPEseq1's non-replicate analysis (Gim et al. 2016), where D was thresholded at a fixed value (default 1.2) chosen empirically via reproducibility analysis across benchmark datasets. Users should verify whether this default is appropriate for their own normalization scale and log-transform.
+When `trim.method = "dvalue"`, LPEseq2 removes any pairwise value whose M value (the rescaled difference used for variance estimation) exceeds `d.threshold / sqrt(2)` in absolute value, prior to variance trend estimation. Thresholding on M rather than raw D keeps the cutoff equally strict regardless of within- vs. between-group origin or group size. This reproduces the outlier-removal step of LPEseq1's non-replicate analysis (Gim et al. 2016), where the equivalent M value was thresholded at a fixed value (default `d.threshold = 1.2`, i.e. |M| ≤ 0.849) chosen empirically via reproducibility analysis across benchmark datasets. Users should verify whether this default is appropriate for their own normalization scale and log-transform.
 
 Outlier detection is performed on the M-value scale because M is the scale used for local pooled variance estimation.
 
@@ -598,7 +598,8 @@ For `trim.method = "dvalue"`, the threshold table is a single-row summary
 
 | Column | Description |
 | --- | --- |
-| `d.threshold` | The fixed threshold applied to the raw D values |
+| `d.threshold` | The raw-D-scale threshold setting supplied by the user |
+| `m.threshold` | The actual cutoff applied to M values (`d.threshold / sqrt(2)`) |
 | `n_total_before` | Total number of pairwise values before trimming |
 | `n_total_removed` | Total number of pairwise values removed |
 

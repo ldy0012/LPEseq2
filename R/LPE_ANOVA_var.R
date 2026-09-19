@@ -20,17 +20,20 @@
 #'   used for variance trend estimation. One of \code{"iqr"}, \code{"dvalue"},
 #'   or \code{"none"}. \code{"iqr"} applies the conventional 1.5*IQR boxplot
 #'   rule within expression-intensity A-bins after pooling within-group and
-#'   between-group values. \code{"dvalue"} applies a fixed global threshold
-#'   to the raw pairwise difference D (as in LPEseq1's non-replicate outlier
-#'   procedure, Gim et al. 2016): any pairwise value with |D| > d.threshold
-#'   is removed, independent of bin. \code{"none"} performs no outlier
-#'   trimming.
+#'   between-group values. \code{"dvalue"} applies a fixed threshold to the
+#'   M value (the rescaled pairwise difference actually used for variance
+#'   estimation), converted from \code{d.threshold} as
+#'   \code{d.threshold/sqrt(2)}, as in LPEseq1's non-replicate outlier
+#'   procedure (Gim et al. 2016): any pairwise value with |M| greater than
+#'   this converted threshold is removed, independent of bin and of group
+#'   size. \code{"none"} performs no outlier trimming.
 #' @param use_weighted_between Logical. Whether to include weighted between-group
 #'   differences in variance trend estimation.
-#' @param d.threshold Numeric. Fixed threshold applied to the raw pairwise
-#'   difference D when \code{trim.method = "dvalue"}. Default is 1.2,
-#'   matching the default reported in LPEseq1 (Gim et al. 2016). Ignored for
-#'   other trim.method values.
+#' @param d.threshold Numeric. Threshold on the LPEseq1 raw-D scale, used to
+#'   derive the fixed M-scale cutoff (\code{d.threshold/sqrt(2)}) applied
+#'   when \code{trim.method = "dvalue"}. Default is 1.2, matching the
+#'   default reported in LPEseq1 (Gim et al. 2016). Ignored for other
+#'   trim.method values.
 #' @note Pairwise D/M values are symmetrized (\eqn{\pm D}) before trimming
 #'   and quantile binning, following LPEseq1's approach of fixing the
 #'   difference distribution's center at zero. Consequently, the pairwise
@@ -169,11 +172,12 @@ LPE_ANOVA_var <- function(expr,
   # -----------------------------
 
   if (use_weighted_between) {
-    warning(
+    message(
       "Between-group differences are used for variance training. ",
       "If trim.method = 'iqr', within-group and between-group pairwise values ",
       "will be pooled and trimmed within expression-intensity A-bins using ",
-      "the conventional 1.5*IQR rule."
+      "the conventional 1.5*IQR rule. If trim.method = 'dvalue', both are ",
+      "trimmed using the fixed M-scale threshold (d.threshold/sqrt(2))."
     )
     for (g in seq_len(nrow(expr))) {
       y <- expr[g, ]
