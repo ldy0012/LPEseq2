@@ -24,9 +24,9 @@ LPE_pseudobulk(
   standard.min.group.n = 5,
   n.bin = 100,
   df = 10,
-  trim.method = c("iqr", "dvalue", "none"),
+  trim.method = c("dvalue", "iqr", "none"),
   d.threshold = 1.2,
-  use_weighted_between = FALSE,
+  use_weighted_between = TRUE,
   p.method = c("chisq", "F_inf"),
   verbose = TRUE
 )

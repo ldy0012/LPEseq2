@@ -9,8 +9,8 @@ LPE_ANOVA_var(
   group,
   n.bin = 100,
   df = 10,
-  trim.method = c("iqr", "dvalue", "none"),
-  use_weighted_between = FALSE,
+  trim.method = c("dvalue", "iqr", "none"),
+  use_weighted_between = TRUE,
   d.threshold = 1.2
 )
 }

@@ -167,9 +167,9 @@ LPE_pseudobulk <- function(
     standard.min.group.n = 5,
     n.bin = 100,
     df = 10,
-    trim.method = c("iqr", "dvalue", "none"),
+    trim.method = c("dvalue", "iqr", "none"),
     d.threshold = 1.2,
-    use_weighted_between = FALSE,
+    use_weighted_between = TRUE,
     p.method = c("chisq", "F_inf"),
     verbose = TRUE
 ) {
@@ -423,7 +423,17 @@ LPE_pseudobulk <- function(
   combined_result <- NULL
 
   if (length(result_list) > 0) {
-    combined_result <- do.call(rbind, result_list)
+    all_cols <- unique(unlist(lapply(result_list, colnames)))
+
+    result_list_aligned <- lapply(result_list, function(df) {
+      missing_cols <- setdiff(all_cols, colnames(df))
+      if (length(missing_cols) > 0) {
+        df[missing_cols] <- NA
+      }
+      df[, all_cols, drop = FALSE]
+    })
+
+    combined_result <- do.call(rbind, result_list_aligned)
     rownames(combined_result) <- NULL
   }
 

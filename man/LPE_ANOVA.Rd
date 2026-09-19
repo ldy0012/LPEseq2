@@ -8,8 +8,8 @@ LPE_ANOVA(
   object,
   n.bin = 100,
   df = 10,
-  trim.method = c("iqr", "dvalue", "none"),
-  use_weighted_between = FALSE,
+  trim.method = c("dvalue", "iqr", "none"),
+  use_weighted_between = TRUE,
   d.threshold = 1.2,
   analysis.method = c("LPE", "standard_anova", "auto"),
   standard.min.group.n = 5,
@@ -65,7 +65,6 @@ definition; see Details).}
 }
 \value{
 A data.frame containing gene-level test statistics. The selected
-analysis method is stored in \code{attr(result, "analysis.method")}.
 analysis method is stored in \code{attr(result, "analysis.method")}.
 For LPE-ANOVA, trimming information, variance trend information,
 bin-level variance points, and the fitted variance trend object are

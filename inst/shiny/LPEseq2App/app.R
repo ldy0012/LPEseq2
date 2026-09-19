@@ -151,7 +151,7 @@ ui <- fluidPage(
             "Fixed D-value threshold (LPEseq1)" = "dvalue",
             "None" = "none"
           ),
-          selected = "iqr"
+          selected = "dvalue"
         ),
 
         helpText(
@@ -399,8 +399,8 @@ server <- function(input, output, session) {
 
       lpe_n_bin              <- if (is.null(input$n_bin)) 100 else input$n_bin
       lpe_df                 <- if (is.null(input$df)) 10 else input$df
-      lpe_trim_method        <- if (is.null(input$trim_method)) "iqr" else input$trim_method
-      lpe_use_weighted_between <- if (is.null(input$use_weighted_between)) FALSE else input$use_weighted_between
+      lpe_trim_method <- if (is.null(input$trim_method)) "dvalue" else input$trim_method
+      lpe_use_weighted_between <- if (is.null(input$use_weighted_between)) TRUE else input$use_weighted_between
       lpe_d_threshold        <- if (is.null(input$d_threshold)) 1.2 else input$d_threshold
       lpe_p_method           <- if (is.null(input$p_method)) "chisq" else input$p_method
       auto_min_group_n       <- if (is.null(input$standard_min_group_n)) 5 else input$standard_min_group_n
@@ -831,7 +831,7 @@ sample4   Treatment"
     cat("LPEseq2 web tool\n")
     cat("1. Upload counts file.\n")
     cat("2. Upload metadata file.\n")
-    cat("   Note: Counts columns must match metadata row names.\n")  # ← 여기로
+    cat("   Note: Counts columns must match metadata row names.\n")
     cat("3. Select group variable.\n")
     cat("4. Click Run Analysis.\n")
     cat("\n")

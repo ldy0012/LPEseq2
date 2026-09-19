@@ -44,8 +44,8 @@ LPE_ANOVA_var <- function(expr,
                           group,
                           n.bin = 100,
                           df = 10,
-                          trim.method = c("iqr", "dvalue", "none"),
-                          use_weighted_between = FALSE,
+                          trim.method = c("dvalue", "iqr", "none"),
+                          use_weighted_between = TRUE,
                           d.threshold = 1.2) {
 
   trim.method <- match.arg(trim.method)
@@ -187,10 +187,6 @@ LPE_ANOVA_var <- function(expr,
         n1 <- as.numeric(n_i[i1])
         n2 <- as.numeric(n_i[i2])
 
-        if (n1 == 1 && n2 == 1) {
-          next
-        }
-
         d_raw <- group_means[i1] - group_means[i2]
 
         m_star <- d_raw / sqrt(1 / n1 + 1 / n2)
@@ -213,7 +209,7 @@ LPE_ANOVA_var <- function(expr,
   #    on between-group differences; trim these values.
   # -----------------------------
 
-  if (length(M_within) == 0 && all(n_i == 1)) {
+  if (length(M_within) == 0 && all(n_i == 1) && !use_weighted_between) {
     warning(
       "All groups have only one sample. ",
       "Variance estimation relies entirely on between-group differences. ",

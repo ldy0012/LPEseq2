@@ -148,6 +148,8 @@ LPE_preprocess <- function(counts,
     stop("Too few genes retained after filtering")
   }
 
+  filtered_lib.size <- colSums(counts)
+
   # -----------------------------
   # 5. normalization + transformation
   # -----------------------------
@@ -171,7 +173,7 @@ LPE_preprocess <- function(counts,
 
   } else if (normalize.method == "library_size") {
 
-    size.factor <- raw_lib.size / stats::median(raw_lib.size)
+    size.factor <- filtered_lib.size / stats::median(filtered_lib.size)
     expr <- sweep(counts, 2, size.factor, "/")
 
     if (log.transform) {

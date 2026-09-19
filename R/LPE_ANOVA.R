@@ -38,7 +38,6 @@
 #'   definition; see Details).
 #' @return A data.frame containing gene-level test statistics. The selected
 #'   analysis method is stored in \code{attr(result, "analysis.method")}.
-#'   analysis method is stored in \code{attr(result, "analysis.method")}.
 #'   For LPE-ANOVA, trimming information, variance trend information,
 #'   bin-level variance points, and the fitted variance trend object are
 #'   stored in \code{attr(result, "trim.info")},
@@ -47,8 +46,8 @@
 #'
 #' @export
 LPE_ANOVA <- function(object, n.bin = 100, df = 10,
-                      trim.method = c("iqr", "dvalue", "none"),
-                      use_weighted_between = FALSE, d.threshold = 1.2,
+                      trim.method = c("dvalue", "iqr", "none"),
+                      use_weighted_between = TRUE, d.threshold = 1.2,
                       analysis.method = c("LPE", "standard_anova", "auto"),
                       standard.min.group.n = 5, verbose = TRUE,
                       p.method = c("chisq", "F_inf"),
@@ -224,7 +223,11 @@ LPE_ANOVA <- function(object, n.bin = 100, df = 10,
       p.val <- stats::pf(Fstat, df1 = k - 1, df2 = 1e6, lower.tail = FALSE)
     }
   } else {
-    p.val <- stats::pchisq(T.stat, df = k - 1, lower.tail = FALSE)
+    if (p.method == "chisq") {
+      p.val <- stats::pchisq(T.stat, df = k - 1, lower.tail = FALSE)
+    } else {
+      p.val <- stats::pf(T.stat / (k - 1), df1 = k - 1, df2 = 1e6, lower.tail = FALSE)
+    }
   }
 
   p.val[!is.finite(p.val)] <- 1
