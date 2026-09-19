@@ -1,4 +1,8 @@
 options(shiny.maxRequestSize = 100 * 1024^2)
+# Show the actual error message (e.g. "Preprocessing failed: ...") instead of
+# Shiny's generic sanitized message ("An error has occurred. Check your logs
+# or contact the app author for clarification.").
+options(shiny.sanitize.errors = FALSE)
 
 library(shiny)
 library(DT)
@@ -228,6 +232,21 @@ ui <- fluidPage(
       table.dataTable {
         font-size: 0.85rem;
       }
+
+      /* ---------- top control bar ---------- */
+      .lpe-topbar {
+        margin-bottom: 20px;
+      }
+      .lpe-topbar .well {
+        margin-bottom: 12px;
+      }
+      .accordion-button:not(.collapsed) {
+        color: #2563EB;
+        background-color: rgba(37, 99, 235, 0.06);
+      }
+      .accordion-button:focus {
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+      }
     "))
   ),
 
@@ -237,282 +256,342 @@ ui <- fluidPage(
     p("Local Pooled Error-Based ANOVA for RNA-Seq Count Data")
   ),
 
-  sidebarLayout(
-    sidebarPanel(
-      width = 4,
-
-      div(class = "lpe-section-title", span(class = "badge-num", "1"), "Upload input files"),
-
-      fileInput("counts_file", "Upload counts file", accept = c(".csv", ".tsv", ".txt")),
-      checkboxInput(
-        "no_gene_id",
-        "First column is NOT a gene identifier (auto-assign gene IDs)",
-        value = FALSE
-      ),
-      helpText(
-        "Check this if your file has no gene identifier column. ",
-        "Gene identifiers will be automatically assigned as gene_1, gene_2, ..."
-      ),
-
-      uiOutput("gene_id_warning_ui"),
-
-      fileInput("meta_file", "Upload metadata file", accept = c(".csv", ".tsv", ".txt")),
-
-      div(class = "lpe-section-title", span(class = "badge-num", "2"), "Select analysis options"),
-
-      uiOutput("group_var_ui"),
-
-      selectInput(
-        "normalize_method",
-        "Normalization method",
-        choices = c("library_size", "TMM", "DESeq2", "none"),
-        selected = "TMM"
-      ),
-
-      selectInput(
-        "variance_eval",
-        "Variance evaluation method",
-        choices = c("Grand mean (default)" = "grand_mean",
-                    "Per-group (Welch)" = "per_group"),
-        selected = "grand_mean"
-      ),
-      helpText(
-        "Per-group evaluates variance separately for each group's own mean ",
-        "expression level, matching LPEseq1's approach for 2-group comparisons. ",
-        "Recommended when group means differ substantially in intensity."
-      ),
-
-      selectInput(
-        "analysis_method",
-        "Analysis method",
-        choices = c(
-          "LPE-ANOVA" = "LPE",
-          "Standard one-way ANOVA" = "standard_anova",
-          "Auto by group sample size" = "auto"
-        ),
-        selected = "auto"
-      ),
-
-      conditionalPanel(
-        condition = "input.analysis_method == 'auto'",
-
-        numericInput(
-          "standard_min_group_n",
-          "Minimum group size for standard ANOVA in auto mode",
-          value = 5,
-          min = 2
-        ),
-
-        helpText(
-          "In auto mode, standard one-way ANOVA is used when every group has at least this number of samples. ",
-          "Otherwise, LPE-ANOVA is used."
-        )
-      ),
-
-      checkboxInput(
-        "log_transform",
-        "Log2 transform",
-        value = TRUE
-      ),
-
-      numericInput(
-        "min_count",
-        "Minimum count",
-        value = 5,
-        min = 0
-      ),
-
-      numericInput(
-        "prior_count",
-        "Pseudo count",
-        value = 1,
-        min = 0
-      ),
-
-      conditionalPanel(
-        condition = "input.analysis_method != 'standard_anova'",
-
-        numericInput(
-          "n_bin",
-          "Number of bins",
-          value = 100,
-          min = 5
-        ),
-
-        numericInput(
-          "df",
-          "Spline degrees of freedom",
-          value = 10,
-          min = 2
-        ),
-
-        selectInput(
-          "trim_method",
-          "Pairwise outlier trimming method",
-          choices = c(
-            "Pooled bin-wise IQR" = "iqr",
-            "Fixed D-value threshold (LPEseq1)" = "dvalue",
-            "None" = "none"
+  div(
+    class = "lpe-topbar",
+    wellPanel(
+      fluidRow(
+        column(
+          3,
+          fileInput("counts_file", "Upload counts file", accept = c(".csv", ".tsv", ".txt")),
+          checkboxInput(
+            "no_gene_id",
+            "First column is NOT a gene identifier (auto-assign gene IDs)",
+            value = FALSE
           ),
-          selected = "dvalue"
+          uiOutput("gene_id_warning_ui")
         ),
 
-        helpText(
-          "The IQR method pools within-group and between-group-derived pairwise values, ",
-          "divides them into expression-intensity A-bins, and applies the conventional 1.5 within each bin. ",
-          "Outlier detection is performed on the M-value scale used for variance trend estimation."
+        column(
+          3,
+          fileInput("meta_file", "Upload metadata file", accept = c(".csv", ".tsv", ".txt")),
+          uiOutput("group_var_ui")
         ),
 
-        conditionalPanel(
-          condition = "input.trim_method == 'dvalue'",
-
-          numericInput(
-            "d_threshold",
-            "D-value threshold",
-            value = 1.2,
-            min = 0,
-            step = 0.1
+        column(
+          2,
+          selectInput(
+            "analysis_method",
+            "Analysis method",
+            choices = c(
+              "LPE-ANOVA" = "LPE",
+              "Standard one-way ANOVA" = "standard_anova",
+              "Auto by group sample size" = "auto"
+            ),
+            selected = "auto"
           ),
-
-          helpText(
-            "Applies a fixed threshold on the M scale (the rescaled value actually ",
-            "used for variance estimation), converted from this D-value setting as ",
-            "threshold/sqrt(2), as in LPEseq1's non-replicate outlier procedure ",
-            "(Gim et al. 2016). Any pairwise value whose |M| exceeds the converted ",
-            "threshold is removed, regardless of expression-intensity bin or group ",
-            "size. Default 1.2 was empirically tuned on specific benchmark datasets; ",
-            "consider adjusting for your data."
+          selectInput(
+            "normalize_method",
+            "Normalization method",
+            choices = c("library_size", "TMM", "DESeq2", "none"),
+            selected = "TMM"
           )
         ),
 
-        checkboxInput(
-          "use_weighted_between",
-          "Use weighted between-group differences",
-          value = TRUE
+        column(
+          2,
+          selectInput(
+            "variance_eval",
+            "Variance evaluation method",
+            choices = c("Grand mean (default)" = "grand_mean",
+                        "Per-group (Welch)" = "per_group"),
+            selected = "grand_mean"
+          ),
+          checkboxInput(
+            "log_transform",
+            "Log2 transform",
+            value = TRUE
+          )
         ),
 
-        helpText(
-          "If checked, between-group-derived values are also included in variance trend estimation. ",
-          "When IQR trimming is selected, within-group and between-group-derived values are pooled before bin-wise IQR trimming."
-        ),
-
-        selectInput(
-          "p_method",
-          "LPE p-value method",
-          choices = c("chisq", "F_inf"),
-          selected = "chisq"
+        column(
+          2,
+          actionButton(
+            "run",
+            "Run Analysis",
+            icon = icon("play"),
+            class = "btn-primary"
+          ),
+          br(),
+          br(),
+          conditionalPanel(
+            condition = "input.run > 0",
+            uiOutput("run_status")
+          ),
+          br(),
+          downloadButton(
+            "download_results",
+            "Download results"
+          )
         )
-      ),
-
-      tags$hr(),
-
-      actionButton(
-        "run",
-        "Run Analysis",
-        icon = icon("play"),
-        class = "btn-primary"
-      ),
-
-      br(),
-      br(),
-
-      conditionalPanel(
-        condition = "input.run > 0",
-        uiOutput("run_status")
-      ),
-
-      br(),
-
-      downloadButton(
-        "download_results",
-        "Download results"
       )
     ),
 
-    mainPanel(
-      width = 8,
-      tabsetPanel(
-        tabPanel(
-          "Instructions",
-          icon = icon("info-circle"),
-          h4("Input format"),
-          p("Counts file: genes as rows and samples as columns."),
-          p("Metadata file: samples as rows and variables as columns."),
-          p("The column names of the counts file must match the row names of the metadata file."),
-          p("If the first column is not a gene identifier, check 'First column is NOT a gene identifier' to assign gene IDs automatically."),
+    bslib::accordion(
+      id = "advanced_options_accordion",
+      open = FALSE,
+      bslib::accordion_panel(
+        title = "Advanced options",
+        icon = icon("sliders-h"),
+
+        fluidRow(
+          column(
+            3,
+            conditionalPanel(
+              condition = "input.analysis_method == 'auto'",
+
+              numericInput(
+                "standard_min_group_n",
+                "Minimum group size for standard ANOVA in auto mode",
+                value = 5,
+                min = 2
+              ),
+
+              helpText(
+                "In auto mode, standard one-way ANOVA is used when every group has at least this number of samples. ",
+                "Otherwise, LPE-ANOVA is used."
+              )
+            )
+          ),
+
+          column(
+            3,
+            helpText(
+              "Per-group evaluates variance separately for each group's own mean ",
+              "expression level, matching LPEseq1's approach for 2-group comparisons. ",
+              "Recommended when group means differ substantially in intensity."
+            )
+          ),
+
+          column(
+            2,
+            numericInput(
+              "min_count",
+              "Minimum count",
+              value = 5,
+              min = 0
+            )
+          ),
+
+          column(
+            2,
+            numericInput(
+              "prior_count",
+              "Pseudo count",
+              value = 1,
+              min = 0
+            )
+          )
+        ),
+
+        conditionalPanel(
+          condition = "input.analysis_method != 'standard_anova'",
+
           tags$hr(),
-          h4("Counts file format"),
-          verbatimTextOutput("counts_example"),
-          h4("Metadata file format"),
-          verbatimTextOutput("meta_example")
-        ),
 
-        tabPanel(
-          "Counts preview",
-          icon = icon("table"),
-          DTOutput("counts_preview")
-        ),
+          fluidRow(
+            column(
+              2,
+              numericInput(
+                "n_bin",
+                "Number of bins",
+                value = 100,
+                min = 5
+              )
+            ),
 
-        tabPanel(
-          "Metadata preview",
-          icon = icon("list"),
-          DTOutput("meta_preview")
-        ),
+            column(
+              2,
+              numericInput(
+                "df",
+                "Spline degrees of freedom",
+                value = 10,
+                min = 2
+              )
+            ),
 
-        tabPanel(
-          "Results",
-          icon = icon("chart-bar"),
-          DTOutput("results_table")
-        ),
+            column(
+              3,
+              selectInput(
+                "trim_method",
+                "Pairwise outlier trimming method",
+                choices = c(
+                  "Pooled bin-wise IQR" = "iqr",
+                  "Fixed D-value threshold (LPEseq1)" = "dvalue",
+                  "None" = "none"
+                ),
+                selected = "dvalue"
+              ),
 
-        tabPanel(
-          "Method info",
-          icon = icon("cog"),
-          verbatimTextOutput("method_info")
-        ),
+              helpText(
+                "The IQR method pools within-group and between-group-derived pairwise values, ",
+                "divides them into expression-intensity A-bins, and applies the conventional 1.5 within each bin. ",
+                "Outlier detection is performed on the M-value scale used for variance trend estimation."
+              )
+            ),
 
-        tabPanel(
-          "Variance trend info",
-          icon = icon("chart-line"),
-          verbatimTextOutput("trend_info"),
-          DTOutput("base_var_table")
-        ),
+            column(
+              2,
+              conditionalPanel(
+                condition = "input.trim_method == 'dvalue'",
 
-        tabPanel(
-          "Trimming info",
-          icon = icon("filter"),
-          verbatimTextOutput("trim_info"),
-          DTOutput("trim_table")
-        ),
+                numericInput(
+                  "d_threshold",
+                  "D-value threshold",
+                  value = 1.2,
+                  min = 0,
+                  step = 0.1
+                ),
 
-        tabPanel(
-          "Spline Plot",
-          icon = icon("chart-area"),
-          plotOutput("spline_plot", height = "500px"),
-          helpText("Blue dots: bin-level variance estimates | Red line: fitted variance trend spline")
-        ),
+                helpText(
+                  "Applies a fixed threshold on the M scale (the rescaled value actually ",
+                  "used for variance estimation), converted from this D-value setting as ",
+                  "threshold/sqrt(2), as in LPEseq1's non-replicate outlier procedure ",
+                  "(Gim et al. 2016). Any pairwise value whose |M| exceeds the converted ",
+                  "threshold is removed, regardless of expression-intensity bin or group ",
+                  "size. Default 1.2 was empirically tuned on specific benchmark datasets; ",
+                  "consider adjusting for your data."
+                )
+              )
+            ),
 
-        # ###
-        # tabPanel(
-        #   "Volcano Plot",
-        #   fluidRow(
-        #     column(3,
-        #            numericInput("volcano_fc_cutoff", "Mean difference cutoff", value = 1, min = 0, step = 0.1),
-        #            numericInput("volcano_q_cutoff", "q-value cutoff", value = 0.05, min = 0, max = 1, step = 0.01),
-        #            helpText("X-axis: Between-group MS (log2 scale) | Y-axis: -log10(p.value)")
-        #     ),
-        #     column(9,
-        #            plotOutput("volcano_plot", height = "500px")
-        #     )
-        #   )
-        # ),
-        # ###
+            column(
+              3,
+              checkboxInput(
+                "use_weighted_between",
+                "Use weighted between-group differences",
+                value = TRUE
+              ),
 
-        tabPanel(
-          "Log",
-          icon = icon("terminal"),
-          verbatimTextOutput("log_text"),
+              helpText(
+                "If checked, between-group-derived values are also included in variance trend estimation. ",
+                "When IQR trimming is selected, within-group and between-group-derived values are pooled before bin-wise IQR trimming."
+              ),
+
+              selectInput(
+                "p_method",
+                "LPE p-value method",
+                choices = c("chisq", "F_inf"),
+                selected = "chisq"
+              )
+            )
+          )
         )
+      )
+    )
+  ),
+
+  div(
+    style = "margin-top: 20px;",
+    tabsetPanel(
+      tabPanel(
+        "Instructions",
+        icon = icon("info-circle"),
+
+        h4(icon("rocket"), " Quick start"),
+        tags$ol(
+          tags$li("Upload your ", strong("counts file"), " (genes as rows, samples as columns)."),
+          tags$li("Upload your ", strong("metadata file"), " (samples as rows, variables such as group as columns)."),
+          tags$li("Select the ", strong("group variable"), " you want to compare (e.g. \"group\")."),
+          tags$li("Adjust the analysis options if needed — the defaults work for most datasets."),
+          tags$li("Click ", strong("Run Analysis"), " and check the ", strong("Results"), " tab once it finishes.")
+        ),
+
+        tags$hr(),
+
+        h4(icon("file-alt"), " Input file requirements"),
+        tags$ul(
+          tags$li(strong("Counts file: "), "genes as rows, samples as columns."),
+          tags$li(strong("Metadata file: "), "samples as rows, variables (e.g. group) as columns."),
+          tags$li("The ", strong("column names"), " of the counts file must exactly match the ", strong("row names"), " of the metadata file (i.e. the sample names)."),
+          tags$li("If your counts file has no gene identifier column, check ", em("“First column is NOT a gene identifier”"), " in the sidebar to auto-assign gene IDs (gene_1, gene_2, ...).")
+        ),
+
+        tags$hr(),
+
+        h4(icon("table"), " Counts file format"),
+        p("Supported formats and an example layout:"),
+        verbatimTextOutput("counts_example"),
+
+        h4(icon("list"), " Metadata file format"),
+        p("Supported formats and an example layout:"),
+        verbatimTextOutput("meta_example")
+      ),
+
+      tabPanel(
+        "Counts preview",
+        icon = icon("table"),
+        DTOutput("counts_preview")
+      ),
+
+      tabPanel(
+        "Metadata preview",
+        icon = icon("list"),
+        DTOutput("meta_preview")
+      ),
+
+      tabPanel(
+        "Results",
+        icon = icon("chart-bar"),
+        DTOutput("results_table")
+      ),
+
+      tabPanel(
+        "Method info",
+        icon = icon("cog"),
+        verbatimTextOutput("method_info")
+      ),
+
+      tabPanel(
+        "Variance trend info",
+        icon = icon("chart-line"),
+        verbatimTextOutput("trend_info"),
+        DTOutput("base_var_table")
+      ),
+
+      tabPanel(
+        "Trimming info",
+        icon = icon("filter"),
+        verbatimTextOutput("trim_info"),
+        DTOutput("trim_table")
+      ),
+
+      tabPanel(
+        "Spline Plot",
+        icon = icon("chart-area"),
+        plotOutput("spline_plot", height = "500px"),
+        helpText("Blue dots: bin-level variance estimates | Red line: fitted variance trend spline")
+      ),
+
+      # ###
+      # tabPanel(
+      #   "Volcano Plot",
+      #   fluidRow(
+      #     column(3,
+      #            numericInput("volcano_fc_cutoff", "Mean difference cutoff", value = 1, min = 0, step = 0.1),
+      #            numericInput("volcano_q_cutoff", "q-value cutoff", value = 0.05, min = 0, max = 1, step = 0.01),
+      #            helpText("X-axis: Between-group MS (log2 scale) | Y-axis: -log10(p.value)")
+      #     ),
+      #     column(9,
+      #            plotOutput("volcano_plot", height = "500px")
+      #     )
+      #   )
+      # ),
+      # ###
+
+      tabPanel(
+        "Log",
+        icon = icon("terminal"),
+        verbatimTextOutput("log_text"),
       )
     )
   )
@@ -1067,6 +1146,25 @@ sample4   Treatment"
       cat("p-value method: ", input$p_method, "\n")
     }
   })
+
+  # ------------------------------------------------------------
+  # By default, Shiny suspends (pauses/cancels) computation for
+  # outputs on tabs that aren't currently visible. If the user
+  # switches to a results tab while LPE_ANOVA() is still running
+  # in the background, that suspend/resume cycle can interrupt
+  # the in-progress computation and surface an error. Disabling
+  # suspendWhenHidden for every output that depends on
+  # analysis_result() keeps them "live" regardless of which tab
+  # is showing, so switching tabs mid-run no longer interrupts
+  # the analysis.
+  # ------------------------------------------------------------
+  outputOptions(output, "results_table", suspendWhenHidden = FALSE)
+  outputOptions(output, "method_info", suspendWhenHidden = FALSE)
+  outputOptions(output, "trend_info", suspendWhenHidden = FALSE)
+  outputOptions(output, "base_var_table", suspendWhenHidden = FALSE)
+  outputOptions(output, "trim_info", suspendWhenHidden = FALSE)
+  outputOptions(output, "trim_table", suspendWhenHidden = FALSE)
+  outputOptions(output, "spline_plot", suspendWhenHidden = FALSE)
 }
 
 shinyApp(ui = ui, server = server)
