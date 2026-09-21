@@ -13,13 +13,15 @@ Imports:
     shiny,
     bslib,
     DT,
-    LPEseq2
+    LPEseq2,
+    edgeR,
+    DESeq2
 Suggests:
     Seurat,
-    edgeR,
-    DESeq2,
     Matrix,
     testthat (>= 3.0.0)
 Remotes:
-    ldy0012/LPEseq2
+    ldy0012/LPEseq2,
+    bioc::release/edgeR,
+    bioc::release/DESeq2
 Config/testthat/edition: 3

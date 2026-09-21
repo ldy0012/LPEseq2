@@ -519,12 +519,58 @@ ui <- fluidPage(
         tags$hr(),
 
         h4(icon("table"), " Counts file format"),
-        p("Supported formats and an example layout:"),
-        verbatimTextOutput("counts_example"),
+        tags$ul(
+          tags$li("Accepted formats: ", code(".csv"), ", ", code(".tsv"), ", ", code(".txt"),
+                  " (comma, tab, semicolon, or pipe separated — detected automatically)."),
+          tags$li("First column: gene identifiers (used as row names)."),
+          tags$li("Remaining columns: one column per sample, integer counts recommended."),
+          tags$li("First row: header with sample names. No missing values allowed.")
+        ),
+        p(strong("Example:")),
+        div(
+          style = "overflow-x: auto;",
+          tags$table(
+            class = "table table-sm table-bordered",
+            style = "max-width: 480px;",
+            tags$thead(
+              tags$tr(
+                tags$th("gene"), tags$th("sample1"), tags$th("sample2"),
+                tags$th("sample3"), tags$th("sample4")
+              )
+            ),
+            tags$tbody(
+              tags$tr(tags$td("gene1"), tags$td("100"), tags$td("120"), tags$td("80"), tags$td("95")),
+              tags$tr(tags$td("gene2"), tags$td("50"), tags$td("60"), tags$td("55"), tags$td("70")),
+              tags$tr(tags$td("gene3"), tags$td("10"), tags$td("15"), tags$td("30"), tags$td("28"))
+            )
+          )
+        ),
 
         h4(icon("list"), " Metadata file format"),
-        p("Supported formats and an example layout:"),
-        verbatimTextOutput("meta_example")
+        tags$ul(
+          tags$li("Accepted formats: ", code(".csv"), ", ", code(".tsv"), ", ", code(".txt"),
+                  " (comma, tab, semicolon, or pipe separated — detected automatically)."),
+          tags$li("First column: sample names (must match the column names of the counts file)."),
+          tags$li("Remaining columns: one column per variable (e.g. group, batch)."),
+          tags$li("First row: header with variable names.")
+        ),
+        p(strong("Example:")),
+        div(
+          style = "overflow-x: auto;",
+          tags$table(
+            class = "table table-sm table-bordered",
+            style = "max-width: 320px;",
+            tags$thead(
+              tags$tr(tags$th("sample"), tags$th("group"))
+            ),
+            tags$tbody(
+              tags$tr(tags$td("sample1"), tags$td("Control")),
+              tags$tr(tags$td("sample2"), tags$td("Control")),
+              tags$tr(tags$td("sample3"), tags$td("Treatment")),
+              tags$tr(tags$td("sample4"), tags$td("Treatment"))
+            )
+          )
+        )
       ),
 
       tabPanel(
@@ -602,46 +648,20 @@ server <- function(input, output, session) {
   run_state <- reactiveVal("idle")  # idle / running / done / error
   gene_id_warning <- reactiveVal(NULL)
 
+  # Holds the outcome of the most recent Run click: a list with $status
+  # ("done" / "error" / "idle") and either $data (the result data.frame, on
+  # success) or $condition (the original R/validation condition, on
+  # failure). The analysis is computed inside a plain observeEvent() rather
+  # than a lazy eventReactive(): observers are never suspended just because
+  # the tab that would display their result isn't currently visible, so
+  # this guarantees the analysis always runs the instant "Run Analysis" is
+  # clicked, no matter which tab the user is on at the time.
+  analysis_state <- reactiveVal(list(status = "idle"))
+
   observeEvent(input$run, {
     run_state("running")
-  })
 
-  output$run_status <- renderUI({
-    state <- run_state()
-    if (state == "idle") {
-      return(NULL)
-    } else if (state == "running") {
-      div(
-        class = "run-status-running blinking",
-        icon("spinner"), " Running analysis... Please wait."
-      )
-    } else if (state == "done") {
-      div(
-        class = "run-status-done",
-        icon("check-circle"), " Analysis complete."
-      )
-    } else if (state == "error") {
-      div(
-        class = "run-status-error",
-        icon("exclamation-circle"), " An error occurred."
-      )
-    }
-  })
-
-  output$gene_id_warning_ui <- renderUI({
-    msg <- gene_id_warning()
-    if (is.null(msg)) return(NULL)
-    div(
-      class = "gene-id-note",
-      icon("exclamation-triangle"),
-      strong(" Note: "),
-      msg
-    )
-  })
-
-  analysis_result <- eventReactive(input$run, {
-
-    result <- tryCatch({
+    outcome <- tryCatch({
 
       counts <- counts_data()
       meta   <- meta_data()
@@ -708,70 +728,59 @@ server <- function(input, output, session) {
         variance.eval = input$variance_eval
       )
 
-      run_state("done")
-      res
+      list(status = "done", data = res)
     }, error = function(e) {
       if (inherits(e, "shiny.silent.error")) {
-        run_state("idle")
+        list(status = "idle", condition = e)
       } else {
-        run_state("error")
+        list(status = "error", condition = e)
       }
-      stop(e)
     })
-    result
+
+    analysis_state(outcome)
+    run_state(outcome$status)
   })
 
-  output$counts_example <- renderText({
-    "=== Supported formats ===
-- CSV  : comma-separated (.csv)
-- TSV  : tab-separated (.tsv, .txt)
-- Other: semicolon (;), pipe (|), or space-separated (.txt)
-  (separator is detected automatically)
-
-=== Required structure ===
-- First column : gene identifiers (row names)
-- Other columns: one column per sample (integer counts recommended)
-- First row     : header with sample names
-- No missing values allowed
-
-=== Example (CSV) ===
-gene,sample1,sample2,sample3,sample4
-gene1,100,120,80,95
-gene2,50,60,55,70
-gene3,10,15,30,28
-
-=== Example (TSV) ===
-gene    sample1    sample2    sample3    sample4
-gene1   100        120        80         95
-gene2   50         60         55         70
-gene3   10         15         30         28"
+  output$run_status <- renderUI({
+    state <- run_state()
+    if (state == "idle") {
+      return(NULL)
+    } else if (state == "running") {
+      div(
+        class = "run-status-running blinking",
+        icon("spinner"), " Running analysis... Please wait."
+      )
+    } else if (state == "done") {
+      div(
+        class = "run-status-done",
+        icon("check-circle"), " Analysis complete."
+      )
+    } else if (state == "error") {
+      div(
+        class = "run-status-error",
+        icon("exclamation-circle"), " An error occurred."
+      )
+    }
   })
 
-  output$meta_example <- renderText({
-    "=== Supported formats ===
-- CSV  : comma-separated (.csv)
-- TSV  : tab-separated (.tsv, .txt)
-- Other: semicolon (;), pipe (|), or space-separated (.txt)
-  (separator is detected automatically)
+  output$gene_id_warning_ui <- renderUI({
+    msg <- gene_id_warning()
+    if (is.null(msg)) return(NULL)
+    div(
+      class = "gene-id-note",
+      icon("exclamation-triangle"),
+      strong(" Note: "),
+      msg
+    )
+  })
 
-=== Required structure ===
-- First column : sample names (must match column names of counts file)
-- Other columns: one column per variable (e.g. group, batch)
-- First row     : header with variable names
-
-=== Example (CSV) ===
-sample,group
-sample1,Control
-sample2,Control
-sample3,Treatment
-sample4,Treatment
-
-=== Example (TSV) ===
-sample    group
-sample1   Control
-sample2   Control
-sample3   Treatment
-sample4   Treatment"
+  analysis_result <- reactive({
+    state <- analysis_state()
+    if (!is.null(state$condition)) {
+      stop(state$condition)
+    }
+    req(identical(state$status, "done"))
+    state$data
   })
 
   counts_data <- reactive({
