@@ -247,6 +247,22 @@ ui <- fluidPage(
       .accordion-button:focus {
         box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
       }
+    ")),
+    tags$script(HTML("
+      // R/Shiny runs the whole analysis synchronously, so the server
+      // never gets a chance to push a 'running' update to the browser
+      // until the computation is completely finished — the real
+      // output$run_status text would otherwise only ever appear at the
+      // very end, never while work is actually happening. This shows a
+      // 'Running...' placeholder the instant the button is clicked;
+      // once the server finishes and sends the real run_status HTML,
+      // Shiny overwrites this placeholder automatically like any other
+      // output update, so no cleanup code is needed here.
+      $(document).on('click', '#run', function() {
+        $('#run_status').html(
+          '<div class=\"run-status-running blinking\">Running analysis... Please wait.</div>'
+        );
+      });
     "))
   ),
 
@@ -328,10 +344,7 @@ ui <- fluidPage(
           ),
           br(),
           br(),
-          conditionalPanel(
-            condition = "input.run > 0",
-            uiOutput("run_status")
-          ),
+          uiOutput("run_status"),
           br(),
           uiOutput("download_results_ui")
         )
