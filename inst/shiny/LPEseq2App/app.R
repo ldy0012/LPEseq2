@@ -306,6 +306,11 @@ ui <- fluidPage(
                         "Per-group (Welch)" = "per_group"),
             selected = "grand_mean"
           ),
+          helpText(
+            "Per-group evaluates variance separately for each group's own mean ",
+            "expression level. Recommended when group means differ substantially ",
+            "in intensity. Ignored when Analysis method is standard one-way ANOVA."
+          ),
           checkboxInput(
             "log_transform",
             "Log2 transform",
@@ -328,10 +333,7 @@ ui <- fluidPage(
             uiOutput("run_status")
           ),
           br(),
-          downloadButton(
-            "download_results",
-            "Download results"
-          )
+          uiOutput("download_results_ui")
         )
       )
     ),
@@ -345,7 +347,7 @@ ui <- fluidPage(
 
         fluidRow(
           column(
-            3,
+            5,
             conditionalPanel(
               condition = "input.analysis_method == 'auto'",
 
@@ -365,15 +367,6 @@ ui <- fluidPage(
 
           column(
             3,
-            helpText(
-              "Per-group evaluates variance separately for each group's own mean ",
-              "expression level, matching LPEseq1's approach for 2-group comparisons. ",
-              "Recommended when group means differ substantially in intensity."
-            )
-          ),
-
-          column(
-            2,
             numericInput(
               "min_count",
               "Minimum count",
@@ -383,7 +376,7 @@ ui <- fluidPage(
           ),
 
           column(
-            2,
+            3,
             numericInput(
               "prior_count",
               "Pseudo count",
@@ -658,6 +651,20 @@ server <- function(input, output, session) {
   # clicked, no matter which tab the user is on at the time.
   analysis_state <- reactiveVal(list(status = "idle"))
 
+  # If the user uploads a new counts or metadata file after already running
+  # an analysis, clear the previous result so the Results/Method info/etc.
+  # tabs don't keep showing numbers computed from the old file (which would
+  # otherwise look like current results for the newly uploaded data).
+  observeEvent(input$counts_file, {
+    analysis_state(list(status = "idle"))
+    run_state("idle")
+  })
+
+  observeEvent(input$meta_file, {
+    analysis_state(list(status = "idle"))
+    run_state("idle")
+  })
+
   observeEvent(input$run, {
     run_state("running")
 
@@ -772,6 +779,25 @@ server <- function(input, output, session) {
       strong(" Note: "),
       msg
     )
+  })
+
+  # Only show the real, clickable download button once a result actually
+  # exists. Previously the button was always clickable, so clicking it
+  # before ever running (or after an error) silently failed to produce a
+  # useful file. A plain disabled-looking button is shown the rest of the
+  # time instead.
+  output$download_results_ui <- renderUI({
+    if (identical(run_state(), "done")) {
+      downloadButton("download_results", "Download results")
+    } else {
+      tags$button(
+        type = "button",
+        class = "btn btn-default",
+        disabled = "disabled",
+        style = "width: 100%; border-radius: 8px; font-weight: 600; color: #9CA3AF; background-color: #F3F4F6; border: 1px solid #D1D5DB;",
+        icon("download"), " Download results"
+      )
+    }
   })
 
   analysis_result <- reactive({
