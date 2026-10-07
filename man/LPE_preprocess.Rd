@@ -20,7 +20,12 @@ LPE_preprocess(
 
 \item{colData}{A data.frame containing sample-level metadata. Row names must match column names of counts.}
 
-\item{design}{A one-way design formula, such as \code{~ group}.}
+\item{design}{A design formula with no left-hand side, e.g. \code{~ group}
+or \code{~ genotype + treatment}. One or more main-effect terms are
+supported (multi-way ANOVA without interaction); interaction terms
+(\code{A:B} or \code{A*B}) are not supported and will raise an error.
+Every term must name a column of \code{colData} that can be coerced to
+a factor with at least two levels.}
 
 \item{normalize.method}{Normalization method. One of \code{"TMM"}, \code{"library_size"}, \code{"DESeq2"}, or \code{"none"}.}
 
@@ -33,7 +38,11 @@ LPE_preprocess(
 \item{verbose}{Logical. Whether to print progress messages.}
 }
 \value{
-A list containing normalized expression matrix, group factor, design, colData, and preprocessing options.
+A list containing normalized expression matrix, a factor
+identifying each unique combination of the design factors (\code{group},
+kept for backward compatibility with one-way designs), a named list of
+the individual design factors (\code{factors}), design, colData, and
+preprocessing options.
 }
 \description{
 This function checks raw count data, filters low-count genes, normalizes

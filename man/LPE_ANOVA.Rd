@@ -41,12 +41,15 @@ reported in LPEseq1 (Gim et al. 2016). Ignored for other
 \item{analysis.method}{Analysis method. One of \code{"LPE"},
 \code{"standard_anova"}, or \code{"auto"}. \code{"LPE"} uses the
 local pooled error-based ANOVA. \code{"standard_anova"} uses conventional
-gene-wise one-way ANOVA. \code{"auto"} selects standard ANOVA when all
-groups have at least \code{standard.min.group.n} samples; otherwise,
-LPE-ANOVA is used.}
+gene-wise ANOVA (Type II sums of squares for multi-way designs).
+\code{"auto"} selects standard ANOVA when every factor-level
+combination (design "cell") has at least \code{standard.min.group.n}
+samples; otherwise, LPE-ANOVA is used.}
 
-\item{standard.min.group.n}{Minimum per-group sample size required to use
-standard one-way ANOVA when \code{analysis.method = "auto"}.}
+\item{standard.min.group.n}{Minimum per-cell sample size required to use
+standard ANOVA when \code{analysis.method = "auto"}. A "cell" is a
+unique combination of the design factor levels (for a one-way design,
+this is simply a group).}
 
 \item{verbose}{Logical. Whether to print progress messages.}
 
@@ -56,24 +59,48 @@ standard one-way ANOVA when \code{analysis.method = "auto"}.}
 trend is evaluated for the test statistic. One of \code{"grand_mean"}
 or \code{"per_group"}. \code{"grand_mean"} (default) evaluates the
 variance trend once at each gene's overall (grand) mean expression and
-uses it as a single pooled variance in a standard one-way ANOVA-style
-F statistic. \code{"per_group"} evaluates the variance trend
-separately at each group's mean expression and combines the
-group-specific variances via inverse-variance weighting into a
-Welch-type unequal-variance test statistic (returned with
-\code{method = "LPE_Welch"} and a different \code{var}/\code{MS_between}
-definition; see Details).}
+uses it as a single pooled variance for the test statistic; this mode
+supports both one-way and multi-way (main-effects-only) designs.
+\code{"per_group"} evaluates the variance trend separately at each
+group's mean expression and combines the group-specific variances via
+inverse-variance weighting into a Welch-type unequal-variance test
+statistic (returned with \code{method = "LPE_Welch"} and a different
+\code{var}/\code{MS_between} definition; see Details). \code{"per_group"}
+is only supported for one-way designs (a single design term); it raises
+an error for multi-way designs.}
 }
 \value{
-A data.frame containing gene-level test statistics. The selected
-analysis method is stored in \code{attr(result, "analysis.method")}.
-For LPE-ANOVA, trimming information, variance trend information,
-bin-level variance points, and the fitted variance trend object are
-stored in \code{attr(result, "trim.info")},
-\code{attr(result, "trend.info")}, \code{attr(result, "base.var")},
-and \code{attr(result, "var.spline")}.
+A data.frame containing gene-level test statistics. For a
+one-way design, columns are unsuffixed (\code{MS_between}, \code{F},
+\code{p.value}, \code{q.value}, ...), matching previous versions. For a
+multi-way design (e.g. \code{design = ~ A + B}), one main-effect test is
+reported per design term, with columns suffixed by the term name (e.g.
+\code{F_A}, \code{p.value_A}, \code{q.value_A}, \code{F_B},
+\code{p.value_B}, \code{q.value_B}, ...); \code{gene}, \code{mean},
+\code{var}, and \code{method} are shared across terms. The selected
+analysis method is stored in \code{attr(result, "analysis.method")},
+and the design term names are stored in
+\code{attr(result, "design.terms")}. For LPE-ANOVA, trimming
+information, variance trend information, bin-level variance points, and
+the fitted variance trend object are stored in
+\code{attr(result, "trim.info")}, \code{attr(result, "trend.info")},
+\code{attr(result, "base.var")}, and \code{attr(result, "var.spline")}.
 }
 \description{
-Performs multi-group differential expression analysis using an
-intensity-dependent local pooled error variance trend.
+Performs multi-group (and multi-way, interaction-free) differential
+expression analysis using an intensity-dependent local pooled error
+variance trend.
+}
+\details{
+For a multi-way design \code{~ A + B + ...} (no interaction terms
+allowed), each design term's main effect is tested by comparing, per
+gene, the full additive model against the model with that term dropped:
+\code{SS_term = RSS(reduced) - RSS(full)}, with
+\code{df_term = rank(X_full) - rank(X_reduced)}. This is the standard
+Type II sum-of-squares decomposition, which for a main-effects-only model
+does not depend on term order. The intensity-dependent pooled variance
+(from the same LPE variance-trend spline used for one-way designs) is
+used as the common denominator for every term's test statistic. This
+reduces exactly to the original one-way LPE-ANOVA when the design has a
+single term.
 }

@@ -6,14 +6,23 @@
 #'
 #' @param counts A numeric matrix of raw counts with genes as rows and samples as columns.
 #' @param colData A data.frame containing sample-level metadata. Row names must match column names of counts.
-#' @param design A one-way design formula, such as \code{~ group}.
+#' @param design A design formula with no left-hand side, e.g. \code{~ group}
+#'   or \code{~ genotype + treatment}. One or more main-effect terms are
+#'   supported (multi-way ANOVA without interaction); interaction terms
+#'   (\code{A:B} or \code{A*B}) are not supported and will raise an error.
+#'   Every term must name a column of \code{colData} that can be coerced to
+#'   a factor with at least two levels.
 #' @param normalize.method Normalization method. One of \code{"TMM"}, \code{"library_size"}, \code{"DESeq2"}, or \code{"none"}.
 #' @param log.transform Logical. Whether to apply log2 transformation.
 #' @param min.count Minimum count threshold for low-count filtering.
 #' @param prior.count Prior count added before log transformation.
 #' @param verbose Logical. Whether to print progress messages.
 #'
-#' @return A list containing normalized expression matrix, group factor, design, colData, and preprocessing options.
+#' @return A list containing normalized expression matrix, a factor
+#'   identifying each unique combination of the design factors (\code{group},
+#'   kept for backward compatibility with one-way designs), a named list of
+#'   the individual design factors (\code{factors}), design, colData, and
+#'   preprocessing options.
 #'
 #' @export
 LPE_preprocess <- function(counts,
@@ -100,31 +109,91 @@ LPE_preprocess <- function(counts,
   # -----------------------------
   # 2. design check
   # -----------------------------
+  # Multi-way (main-effects-only) designs are supported: ~ A, ~ A + B,
+  # ~ A + B + C, ... Interaction terms (A:B, A*B) are rejected because the
+  # LPE-ANOVA variance-trend / test-statistic machinery below assumes an
+  # additive model.
 
-  design_terms <- all.vars(design)
-
-  if (length(design_terms) != 1) {
-    stop("Only one-way design is currently supported")
+  if (!inherits(design, "formula")) {
+    stop("design must be a formula, e.g. ~ group or ~ A + B")
   }
 
-  group_var <- design_terms[1]
+  design_tt <- stats::terms(design)
 
-  if (!group_var %in% colnames(colData)) {
-    stop("Group variable not found in colData")
+  if (!is.null(attr(design_tt, "response")) && attr(design_tt, "response") != 0) {
+    stop("design must not have a left-hand side, e.g. use ~ group, not y ~ group")
   }
 
-  if (anyNA(colData[[group_var]])) {
-    stop("Group variable contains NA")
+  if (attr(design_tt, "intercept") == 0) {
+    stop("design must include an intercept (do not use ~ . - 1 or ~ . + 0)")
   }
 
-  group <- droplevels(as.factor(colData[[group_var]]))
+  term_labels <- attr(design_tt, "term.labels")
+  term_order  <- attr(design_tt, "order")
 
-  if (nlevels(group) < 2) {
-    stop("At least two groups are required")
+  if (length(term_labels) < 1) {
+    stop("design must contain at least one factor term, e.g. ~ group or ~ A + B")
+  }
+
+  if (any(term_order > 1)) {
+    stop(
+      "Interaction terms are not supported (e.g. 'A:B' or 'A*B'). ",
+      "LPE_ANOVA()/LPE_preprocess() only support main-effect (additive) ",
+      "multi-way designs, e.g. ~ A + B."
+    )
+  }
+
+  # terms() backquotes non-syntactic names (e.g. a column called "my group"
+  # comes back as "`my group`"); strip them so they match colData columns.
+  design_terms <- gsub("^`|`$", "", term_labels)
+
+  missing_terms <- setdiff(design_terms, colnames(colData))
+  if (length(missing_terms) > 0) {
+    stop(
+      "The following design variable(s) were not found in colData: ",
+      paste(missing_terms, collapse = ", ")
+    )
+  }
+
+  factors <- vector("list", length(design_terms))
+  names(factors) <- design_terms
+
+  for (v in design_terms) {
+    if (anyNA(colData[[v]])) {
+      stop("Design variable '", v, "' contains NA")
+    }
+
+    f <- droplevels(as.factor(colData[[v]]))
+
+    if (nlevels(f) < 2) {
+      stop("Design variable '", v, "' must have at least two levels")
+    }
+
+    factors[[v]] <- f
+  }
+
+  # `group`: a single factor identifying each unique combination of the
+  # design factors (i.e. each experimental "cell"). For a one-way design
+  # (length(design_terms) == 1) this is exactly the original factor, so
+  # existing one-way callers of LPE_ANOVA()/LPE_ANOVA_var() that only look
+  # at object$group are unaffected. For a multi-way design, it is the
+  # crossing of all factors, and is what LPE_ANOVA_var() uses to define
+  # "true replicates" (samples sharing the same combination of factor
+  # levels) when estimating the intensity-dependent variance trend.
+  if (length(design_terms) == 1) {
+    group <- factors[[1]]
+  } else {
+    group <- droplevels(interaction(factors, drop = TRUE, sep = "."))
   }
 
   if (any(table(group) == 1)) {
-    warning("Some groups have only one sample. Inference may be unstable.")
+    warning(
+      if (length(design_terms) == 1) {
+        "Some groups have only one sample. Inference may be unstable."
+      } else {
+        "Some factor-level combinations have only one sample. Inference may be unstable."
+      }
+    )
   }
 
   # -----------------------------
@@ -224,8 +293,18 @@ LPE_preprocess <- function(counts,
   # -----------------------------
 
   if (verbose) {
-    cat("Groups detected:\n")
-    print(table(group))
+    if (length(design_terms) == 1) {
+      cat("Groups detected:\n")
+      print(table(group))
+    } else {
+      cat("Design factors (no interaction):", paste(design_terms, collapse = " + "), "\n")
+      for (v in design_terms) {
+        cat(" -", v, ":\n")
+        print(table(factors[[v]]))
+      }
+      cat("Factor-level combinations (cells) detected:\n")
+      print(table(group))
+    }
     cat("Genes retained:", nrow(expr), "\n")
     cat("Normalization method:", normalize.method, "\n")
     cat("Log transform:", log.transform, "\n")
@@ -234,6 +313,7 @@ LPE_preprocess <- function(counts,
   return(list(
     expr = expr,
     group = group,
+    factors = factors,
     design = design,
     colData = colData,
     normalize.method = normalize.method,

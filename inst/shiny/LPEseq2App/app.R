@@ -32,6 +32,15 @@ lpe_theme <- bslib::bs_theme(
   "border-color" = "#E5E7EB"
 )
 
+# Variance-evaluation choices. "Per-group (Welch)" is only valid for a
+# single group factor (one-way design), so the server swaps the choices
+# when more than one factor is selected.
+variance_eval_choices_all <- c(
+  "Grand mean (default)" = "grand_mean",
+  "Per-group (Welch)" = "per_group"
+)
+variance_eval_choices_multiway <- c("Grand mean (default)" = "grand_mean")
+
 ui <- fluidPage(
   theme = lpe_theme,
   tags$head(
@@ -120,6 +129,27 @@ ui <- fluidPage(
         font-size: 0.78rem;
         color: #6B7280;
         line-height: 1.4;
+      }
+
+      /* ---------- group-factor builder (+ / - buttons) ---------- */
+      .factor-btns {
+        display: flex;
+        gap: 6px;
+        margin: 0 0 8px 0;
+      }
+      .factor-btns .btn {
+        border-radius: 8px;
+        font-weight: 700;
+        padding: 2px 12px;
+      }
+      .factor-note {
+        background-color: #EFF6FF;
+        border-left: 4px solid #2563EB;
+        border-radius: 8px;
+        padding: 8px 12px;
+        margin-bottom: 8px;
+        font-size: 0.8rem;
+        color: #1F2328;
       }
 
       /* ---------- buttons ---------- */
@@ -290,7 +320,26 @@ ui <- fluidPage(
         column(
           3,
           fileInput("meta_file", "Upload metadata file", accept = c(".csv", ".tsv", ".txt")),
-          uiOutput("group_var_ui")
+
+          # One dropdown per group factor (rendered by the server). Click
+          # "+" to add another factor to test, "-" to remove the last one.
+          uiOutput("factor_vars_ui"),
+          div(
+            class = "factor-btns",
+            actionButton(
+              "add_factor", NULL,
+              icon = icon("plus"),
+              class = "btn btn-outline-primary btn-sm",
+              title = "Add another group factor"
+            ),
+            actionButton(
+              "remove_factor", NULL,
+              icon = icon("minus"),
+              class = "btn btn-outline-secondary btn-sm",
+              title = "Remove the last group factor"
+            )
+          ),
+          uiOutput("multiway_note_ui")
         ),
 
         column(
@@ -300,7 +349,7 @@ ui <- fluidPage(
             "Analysis method",
             choices = c(
               "LPE-ANOVA" = "LPE",
-              "Standard one-way ANOVA" = "standard_anova",
+              "Standard ANOVA" = "standard_anova",
               "Auto by group sample size" = "auto"
             ),
             selected = "auto"
@@ -318,14 +367,14 @@ ui <- fluidPage(
           selectInput(
             "variance_eval",
             "Variance evaluation method",
-            choices = c("Grand mean (default)" = "grand_mean",
-                        "Per-group (Welch)" = "per_group"),
+            choices = variance_eval_choices_all,
             selected = "grand_mean"
           ),
           helpText(
             "Per-group evaluates variance separately for each group's own mean ",
             "expression level. Recommended when group means differ substantially ",
-            "in intensity. Ignored when Analysis method is standard one-way ANOVA."
+            "in intensity. Only available with a single group factor. ",
+            "Ignored when Analysis method is standard ANOVA."
           ),
           checkboxInput(
             "log_transform",
@@ -372,7 +421,8 @@ ui <- fluidPage(
               ),
 
               helpText(
-                "In auto mode, standard one-way ANOVA is used when every group has at least this number of samples. ",
+                "In auto mode, standard ANOVA is used when every group has at least this number of samples ",
+                "(with several group factors: every combination of factor levels). ",
                 "Otherwise, LPE-ANOVA is used."
               )
             )
@@ -499,153 +549,186 @@ ui <- fluidPage(
   div(
     style = "margin-top: 20px;",
     tabsetPanel(
-      tabPanel(
-        "Instructions",
-        icon = icon("info-circle"),
+        tabPanel(
+          "Instructions",
+          icon = icon("info-circle"),
 
-        h4(icon("rocket"), " Quick start"),
-        tags$ol(
-          tags$li("Upload your ", strong("counts file"), " (genes as rows, samples as columns)."),
-          tags$li("Upload your ", strong("metadata file"), " (samples as rows, variables such as group as columns)."),
-          tags$li("Select the ", strong("group variable"), " you want to compare (e.g. \"group\")."),
-          tags$li("Adjust the analysis options if needed — the defaults work for most datasets."),
-          tags$li("Click ", strong("Run Analysis"), " and check the ", strong("Results"), " tab once it finishes.")
-        ),
+          h4(icon("rocket"), " Quick start"),
+          tags$ol(
+            tags$li("Upload your ", strong("counts file"), " (genes as rows, samples as columns)."),
+            tags$li("Upload your ", strong("metadata file"), " (samples as rows, variables such as group as columns)."),
+            tags$li("Select the ", strong("group variable"), " you want to compare (e.g. \"group\")."),
+            tags$li(
+              "To test more than one factor (e.g. genotype and treatment), click the ",
+              strong("+"), " button below the group variable to add another group variable. ",
+              "Each factor's main effect is tested separately in an additive model; ",
+              "interactions between factors are not modeled. Click ", strong("−"),
+              " to remove the last one."
+            ),
+            tags$li("Adjust the analysis options if needed — the defaults work for most datasets."),
+            tags$li("Click ", strong("Run Analysis"), " and check the ", strong("Results"), " tab once it finishes.")
+          ),
 
-        tags$hr(),
+          tags$hr(),
 
-        h4(icon("file-alt"), " Input file requirements"),
-        tags$ul(
-          tags$li(strong("Counts file: "), "genes as rows, samples as columns."),
-          tags$li(strong("Metadata file: "), "samples as rows, variables (e.g. group) as columns."),
-          tags$li("The ", strong("column names"), " of the counts file must exactly match the ", strong("row names"), " of the metadata file (i.e. the sample names)."),
-          tags$li("If your counts file has no gene identifier column, check ", em("“First column is NOT a gene identifier”"), " in the sidebar to auto-assign gene IDs (gene_1, gene_2, ...).")
-        ),
+          h4(icon("file-alt"), " Input file requirements"),
+          tags$ul(
+            tags$li(strong("Counts file: "), "genes as rows, samples as columns."),
+            tags$li(strong("Metadata file: "), "samples as rows, variables (e.g. group) as columns."),
+            tags$li("The ", strong("column names"), " of the counts file must exactly match the ", strong("row names"), " of the metadata file (i.e. the sample names)."),
+            tags$li("If your counts file has no gene identifier column, check ", em("“First column is NOT a gene identifier”"), " in the sidebar to auto-assign gene IDs (gene_1, gene_2, ...).")
+          ),
 
-        tags$hr(),
+          tags$hr(),
 
-        h4(icon("table"), " Counts file format"),
-        tags$ul(
-          tags$li("Accepted formats: ", code(".csv"), ", ", code(".tsv"), ", ", code(".txt"),
-                  " (comma, tab, semicolon, or pipe separated — detected automatically)."),
-          tags$li("First column: gene identifiers (used as row names)."),
-          tags$li("Remaining columns: one column per sample, integer counts recommended."),
-          tags$li("First row: header with sample names. No missing values allowed.")
-        ),
-        p(strong("Example:")),
-        div(
-          style = "overflow-x: auto;",
-          tags$table(
-            class = "table table-sm table-bordered",
-            style = "max-width: 480px;",
-            tags$thead(
-              tags$tr(
-                tags$th("gene"), tags$th("sample1"), tags$th("sample2"),
-                tags$th("sample3"), tags$th("sample4")
+          h4(icon("table"), " Counts file format"),
+          tags$ul(
+            tags$li("Accepted formats: ", code(".csv"), ", ", code(".tsv"), ", ", code(".txt"),
+                    " (comma, tab, semicolon, or pipe separated — detected automatically)."),
+            tags$li("First column: gene identifiers (used as row names)."),
+            tags$li("Remaining columns: one column per sample, integer counts recommended."),
+            tags$li("First row: header with sample names. No missing values allowed.")
+          ),
+          p(strong("Example:")),
+          div(
+            style = "overflow-x: auto;",
+            tags$table(
+              class = "table table-sm table-bordered",
+              style = "max-width: 480px;",
+              tags$thead(
+                tags$tr(
+                  tags$th("gene"), tags$th("sample1"), tags$th("sample2"),
+                  tags$th("sample3"), tags$th("sample4")
+                )
+              ),
+              tags$tbody(
+                tags$tr(tags$td("gene1"), tags$td("100"), tags$td("120"), tags$td("80"), tags$td("95")),
+                tags$tr(tags$td("gene2"), tags$td("50"), tags$td("60"), tags$td("55"), tags$td("70")),
+                tags$tr(tags$td("gene3"), tags$td("10"), tags$td("15"), tags$td("30"), tags$td("28"))
               )
-            ),
-            tags$tbody(
-              tags$tr(tags$td("gene1"), tags$td("100"), tags$td("120"), tags$td("80"), tags$td("95")),
-              tags$tr(tags$td("gene2"), tags$td("50"), tags$td("60"), tags$td("55"), tags$td("70")),
-              tags$tr(tags$td("gene3"), tags$td("10"), tags$td("15"), tags$td("30"), tags$td("28"))
             )
+          ),
+
+          h4(icon("list"), " Metadata file format"),
+          tags$ul(
+            tags$li("Accepted formats: ", code(".csv"), ", ", code(".tsv"), ", ", code(".txt"),
+                    " (comma, tab, semicolon, or pipe separated — detected automatically)."),
+            tags$li("First column: sample names (must match the column names of the counts file)."),
+            tags$li("Remaining columns: one column per variable (e.g. group, batch)."),
+            tags$li("First row: header with variable names.")
+          ),
+          p(strong("Example:")),
+          div(
+            style = "overflow-x: auto;",
+            tags$table(
+              class = "table table-sm table-bordered",
+              style = "max-width: 320px;",
+              tags$thead(
+                tags$tr(tags$th("sample"), tags$th("group"))
+              ),
+              tags$tbody(
+                tags$tr(tags$td("sample1"), tags$td("Control")),
+                tags$tr(tags$td("sample2"), tags$td("Control")),
+                tags$tr(tags$td("sample3"), tags$td("Treatment")),
+                tags$tr(tags$td("sample4"), tags$td("Treatment"))
+              )
+            )
+          ),
+
+          p(strong("Example with two group variables (use + to add the second):")),
+          div(
+            style = "overflow-x: auto;",
+            tags$table(
+              class = "table table-sm table-bordered",
+              style = "max-width: 420px;",
+              tags$thead(
+                tags$tr(tags$th("sample"), tags$th("genotype"), tags$th("treatment"))
+              ),
+              tags$tbody(
+                tags$tr(tags$td("sample1"), tags$td("WT"), tags$td("Control")),
+                tags$tr(tags$td("sample2"), tags$td("WT"), tags$td("Drug")),
+                tags$tr(tags$td("sample3"), tags$td("KO"), tags$td("Control")),
+                tags$tr(tags$td("sample4"), tags$td("KO"), tags$td("Drug"))
+              )
+            )
+          ),
+          tags$ul(
+            tags$li(
+              "With several group variables, the results table has one set of columns per variable, ",
+              "e.g. ", code("F_genotype"), ", ", code("p.value_genotype"), ", ", code("q.value_genotype"),
+              ", ", code("F_treatment"), ", ..."
+            ),
+            tags$li("Every combination of the selected variables should be present in the data (a full crossed design).")
           )
         ),
 
-        h4(icon("list"), " Metadata file format"),
-        tags$ul(
-          tags$li("Accepted formats: ", code(".csv"), ", ", code(".tsv"), ", ", code(".txt"),
-                  " (comma, tab, semicolon, or pipe separated — detected automatically)."),
-          tags$li("First column: sample names (must match the column names of the counts file)."),
-          tags$li("Remaining columns: one column per variable (e.g. group, batch)."),
-          tags$li("First row: header with variable names.")
+        tabPanel(
+          "Counts preview",
+          icon = icon("table"),
+          DTOutput("counts_preview")
         ),
-        p(strong("Example:")),
-        div(
-          style = "overflow-x: auto;",
-          tags$table(
-            class = "table table-sm table-bordered",
-            style = "max-width: 320px;",
-            tags$thead(
-              tags$tr(tags$th("sample"), tags$th("group"))
-            ),
-            tags$tbody(
-              tags$tr(tags$td("sample1"), tags$td("Control")),
-              tags$tr(tags$td("sample2"), tags$td("Control")),
-              tags$tr(tags$td("sample3"), tags$td("Treatment")),
-              tags$tr(tags$td("sample4"), tags$td("Treatment"))
-            )
-          )
+
+        tabPanel(
+          "Metadata preview",
+          icon = icon("list"),
+          DTOutput("meta_preview")
+        ),
+
+        tabPanel(
+          "Results",
+          icon = icon("chart-bar"),
+          DTOutput("results_table")
+        ),
+
+        tabPanel(
+          "Method info",
+          icon = icon("cog"),
+          verbatimTextOutput("method_info")
+        ),
+
+        tabPanel(
+          "Variance trend info",
+          icon = icon("chart-line"),
+          verbatimTextOutput("trend_info"),
+          DTOutput("base_var_table")
+        ),
+
+        tabPanel(
+          "Trimming info",
+          icon = icon("filter"),
+          verbatimTextOutput("trim_info"),
+          DTOutput("trim_table")
+        ),
+
+        tabPanel(
+          "Spline Plot",
+          icon = icon("chart-area"),
+          plotOutput("spline_plot", height = "500px"),
+          helpText("Blue dots: bin-level variance estimates | Red line: fitted variance trend spline")
+        ),
+
+        # ###
+        # tabPanel(
+        #   "Volcano Plot",
+        #   fluidRow(
+        #     column(3,
+        #            numericInput("volcano_fc_cutoff", "Mean difference cutoff", value = 1, min = 0, step = 0.1),
+        #            numericInput("volcano_q_cutoff", "q-value cutoff", value = 0.05, min = 0, max = 1, step = 0.01),
+        #            helpText("X-axis: Between-group MS (log2 scale) | Y-axis: -log10(p.value)")
+        #     ),
+        #     column(9,
+        #            plotOutput("volcano_plot", height = "500px")
+        #     )
+        #   )
+        # ),
+        # ###
+
+        tabPanel(
+          "Log",
+          icon = icon("terminal"),
+          verbatimTextOutput("log_text"),
         )
-      ),
-
-      tabPanel(
-        "Counts preview",
-        icon = icon("table"),
-        DTOutput("counts_preview")
-      ),
-
-      tabPanel(
-        "Metadata preview",
-        icon = icon("list"),
-        DTOutput("meta_preview")
-      ),
-
-      tabPanel(
-        "Results",
-        icon = icon("chart-bar"),
-        DTOutput("results_table")
-      ),
-
-      tabPanel(
-        "Method info",
-        icon = icon("cog"),
-        verbatimTextOutput("method_info")
-      ),
-
-      tabPanel(
-        "Variance trend info",
-        icon = icon("chart-line"),
-        verbatimTextOutput("trend_info"),
-        DTOutput("base_var_table")
-      ),
-
-      tabPanel(
-        "Trimming info",
-        icon = icon("filter"),
-        verbatimTextOutput("trim_info"),
-        DTOutput("trim_table")
-      ),
-
-      tabPanel(
-        "Spline Plot",
-        icon = icon("chart-area"),
-        plotOutput("spline_plot", height = "500px"),
-        helpText("Blue dots: bin-level variance estimates | Red line: fitted variance trend spline")
-      ),
-
-      # ###
-      # tabPanel(
-      #   "Volcano Plot",
-      #   fluidRow(
-      #     column(3,
-      #            numericInput("volcano_fc_cutoff", "Mean difference cutoff", value = 1, min = 0, step = 0.1),
-      #            numericInput("volcano_q_cutoff", "q-value cutoff", value = 0.05, min = 0, max = 1, step = 0.01),
-      #            helpText("X-axis: Between-group MS (log2 scale) | Y-axis: -log10(p.value)")
-      #     ),
-      #     column(9,
-      #            plotOutput("volcano_plot", height = "500px")
-      #     )
-      #   )
-      # ),
-      # ###
-
-      tabPanel(
-        "Log",
-        icon = icon("terminal"),
-        verbatimTextOutput("log_text"),
       )
-    )
   )
 )
 
@@ -653,6 +736,11 @@ server <- function(input, output, session) {
 
   run_state <- reactiveVal("idle")  # idle / running / done / error
   gene_id_warning <- reactiveVal(NULL)
+
+  # Number of group-factor dropdowns currently shown (controlled by the
+  # "+" / "-" buttons). Always at least 1, at most the number of metadata
+  # columns (each factor must be a different metadata column).
+  n_factors <- reactiveVal(1)
 
   # Holds the outcome of the most recent Run click: a list with $status
   # ("done" / "error" / "idle") and either $data (the result data.frame, on
@@ -676,7 +764,51 @@ server <- function(input, output, session) {
   observeEvent(input$meta_file, {
     analysis_state(list(status = "idle"))
     run_state("idle")
+    n_factors(1)   # new metadata: start over with a single group factor
   })
+
+  # ------------------------------------------------------------
+  # "+" / "-" buttons for the group factors
+  # ------------------------------------------------------------
+  observeEvent(input$add_factor, {
+    req(meta_data())
+    if (n_factors() < ncol(meta_data())) {
+      n_factors(n_factors() + 1)
+    }
+  })
+
+  observeEvent(input$remove_factor, {
+    if (n_factors() > 1) {
+      n_factors(n_factors() - 1)
+    }
+  })
+
+  # Per-group (Welch) variance evaluation is only defined for a single
+  # group factor, so only offer it when exactly one factor is selected.
+  observeEvent(n_factors(), {
+    if (n_factors() > 1) {
+      updateSelectInput(
+        session, "variance_eval",
+        choices = variance_eval_choices_multiway,
+        selected = "grand_mean"
+      )
+    } else {
+      updateSelectInput(
+        session, "variance_eval",
+        choices = variance_eval_choices_all,
+        selected = "grand_mean"
+      )
+    }
+  }, ignoreInit = TRUE)
+
+  # Currently selected group variables, in order (NA for a dropdown that
+  # has no value yet).
+  selected_factors <- function() {
+    vapply(seq_len(n_factors()), function(i) {
+      v <- input[[paste0("factor_var_", i)]]
+      if (is.null(v) || length(v) != 1) NA_character_ else as.character(v)
+    }, character(1))
+  }
 
   observeEvent(input$run, {
     run_state("running")
@@ -685,6 +817,8 @@ server <- function(input, output, session) {
 
       counts <- counts_data()
       meta   <- meta_data()
+
+      sel <- selected_factors()
 
       validate(
         need(!is.null(rownames(meta)), "Metadata must have sample names as row names."),
@@ -695,20 +829,32 @@ server <- function(input, output, session) {
           setequal(colnames(counts), rownames(meta)),
           "Sample names do not match between counts columns and metadata row names."
         ),
-        need(input$group_var %in% colnames(meta), "Selected group variable is not in metadata.")
+        need(
+          length(sel) >= 1 && !anyNA(sel),
+          "Please select a metadata variable for every group factor."
+        ),
+        need(
+          !anyDuplicated(sel),
+          "The same metadata variable is selected more than once. Each group factor must be a different variable."
+        ),
+        need(all(sel %in% colnames(meta)), "A selected group variable is not in metadata.")
       )
 
       meta <- meta[colnames(counts), , drop = FALSE]
 
-      validate(
-        need(!anyNA(meta[[input$group_var]]), "Selected group variable contains NA values."),
-        need(
-          length(unique(meta[[input$group_var]])) >= 2,
-          "At least two groups are required for analysis."
+      for (v in sel) {
+        validate(
+          need(!anyNA(meta[[v]]), paste0("Group variable '", v, "' contains NA values.")),
+          need(
+            length(unique(meta[[v]])) >= 2,
+            paste0("Group variable '", v, "' must have at least two groups (levels).")
+          )
         )
-      )
+      }
 
-      design_formula <- stats::reformulate(input$group_var)
+      # Additive (main-effects-only) design: ~ A + B + ... . Names are
+      # backquoted so metadata columns containing spaces etc. also work.
+      design_formula <- stats::reformulate(paste0("`", sel, "`"))
 
       prep <- tryCatch(
         LPE_preprocess(
@@ -734,6 +880,10 @@ server <- function(input, output, session) {
       lpe_p_method           <- if (is.null(input$p_method)) "chisq" else input$p_method
       auto_min_group_n       <- if (is.null(input$standard_min_group_n)) 5 else input$standard_min_group_n
 
+      # Welch-type (per_group) evaluation is one-way only; with several
+      # group factors always use the grand-mean evaluation.
+      lpe_variance_eval <- if (length(sel) > 1) "grand_mean" else input$variance_eval
+
       res <- LPE_ANOVA(
         object             = prep,
         n.bin              = lpe_n_bin,
@@ -745,7 +895,7 @@ server <- function(input, output, session) {
         standard.min.group.n = auto_min_group_n,
         verbose            = FALSE,
         p.method           = lpe_p_method,
-        variance.eval = input$variance_eval
+        variance.eval = lpe_variance_eval
       )
 
       list(status = "done", data = res)
@@ -887,14 +1037,52 @@ server <- function(input, output, session) {
     )
   })
 
-  output$group_var_ui <- renderUI({
+  # One dropdown per group factor. When "+" adds a dropdown the whole set
+  # is re-rendered, so each existing dropdown keeps its previous selection
+  # (read with isolate() so the selection itself doesn't retrigger the
+  # render), and a new dropdown defaults to the first metadata column that
+  # is not already used.
+  output$factor_vars_ui <- renderUI({
     req(meta_data())
 
-    selectInput(
-      "group_var",
-      "Group variable",
-      choices = colnames(meta_data()),
-      selected = colnames(meta_data())[1]
+    cols <- colnames(meta_data())
+    n <- n_factors()
+
+    chosen <- character(0)
+    inputs <- vector("list", n)
+
+    for (i in seq_len(n)) {
+      id <- paste0("factor_var_", i)
+      prev <- isolate(input[[id]])
+
+      if (!is.null(prev) && length(prev) == 1 && prev %in% cols) {
+        sel <- prev
+      } else {
+        unused <- setdiff(cols, chosen)
+        sel <- if (length(unused) > 0) unused[1] else cols[1]
+      }
+
+      chosen <- c(chosen, sel)
+
+      inputs[[i]] <- selectInput(
+        id,
+        if (i == 1) "Group variable" else paste("Group variable", i),
+        choices = cols,
+        selected = sel
+      )
+    }
+
+    tagList(inputs)
+  })
+
+  output$multiway_note_ui <- renderUI({
+    if (n_factors() <= 1) return(NULL)
+
+    div(
+      class = "factor-note",
+      icon("info-circle"),
+      " Additive model: each group variable's main effect is tested separately; ",
+      "interactions are not modeled. Per-group (Welch) variance evaluation is disabled."
     )
   })
 
@@ -917,6 +1105,7 @@ server <- function(input, output, session) {
     requested_method <- attr(analysis_result(), "requested.analysis.method")
     standard_min_group_n <- attr(analysis_result(), "standard.min.group.n")
     trend_info <- attr(analysis_result(), "trend.info")
+    design_terms <- attr(analysis_result(), "design.terms")
 
     if (is.null(method)) {
       if ("method" %in% colnames(analysis_result())) {
@@ -938,9 +1127,15 @@ server <- function(input, output, session) {
     cat("Actually selected analysis method:", method, "\n")
     cat("Minimum group size for standard ANOVA in auto mode:", standard_min_group_n, "\n")
 
+    if (!is.null(design_terms)) {
+      cat("Group factors tested (additive, no interaction):",
+          paste(design_terms, collapse = " + "), "\n")
+    }
+
     if (input$analysis_method == "auto") {
       cat("\nAuto mode rule:\n")
-      cat("- If every group has at least standard.min.group.n samples: standard one-way ANOVA\n")
+      cat("- If every group (every combination of factor levels, when several group factors are used)\n")
+      cat("  has at least standard.min.group.n samples: standard ANOVA\n")
       cat("- Otherwise: LPE-ANOVA\n")
     }
   })
@@ -952,7 +1147,7 @@ server <- function(input, output, session) {
 
     if (is.null(info)) {
       cat("No variance trend information available.\n")
-      cat("This is expected when standard one-way ANOVA is selected.\n")
+      cat("This is expected when standard ANOVA is selected.\n")
       return()
     }
 
@@ -993,7 +1188,7 @@ server <- function(input, output, session) {
       cat("No trimming information available.\n")
 
       if (!is.null(method) && method == "standard_anova") {
-        cat("This is expected because standard one-way ANOVA does not use LPE variance-trend trimming.\n")
+        cat("This is expected because standard ANOVA does not use LPE variance-trend trimming.\n")
       } else {
         cat("This may occur when no LPE variance-trend trimming information was produced.\n")
       }
@@ -1169,11 +1364,18 @@ server <- function(input, output, session) {
     cat("1. Upload counts file.\n")
     cat("2. Upload metadata file.\n")
     cat("   Note: Counts columns must match metadata row names.\n")
-    cat("3. Select group variable.\n")
+    cat("3. Select group variable (click + to add more group variables).\n")
     cat("4. Click Run Analysis.\n")
     cat("\n")
     cat("=== Settings ===\n")
     cat("gene ID column:", if (!isTRUE(input$no_gene_id)) "yes (first column)" else "no (auto-assigned)", "\n")
+
+    sel <- tryCatch(selected_factors(), error = function(e) character(0))
+    if (length(sel) > 0 && !anyNA(sel)) {
+      cat("group variable(s):", paste(sel, collapse = " + "),
+          if (length(sel) > 1) "(additive, no interaction)" else "", "\n")
+    }
+
     cat("analysis method:", input$analysis_method, "\n")
     cat("normalize method:", input$normalize_method, "\n")
     cat("log transform:", input$log_transform, "\n")

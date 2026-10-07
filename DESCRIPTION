@@ -20,10 +20,12 @@ Description: Provides preprocessing and differential expression analysis
     functions for RNA-seq count data. The package supports raw count input
     checking, low-count gene filtering, library-size, TMM, and DESeq2-based
     normalization options. It provides local pooled error-based ANOVA for
-    small-sample multi-group analysis, conventional gene-wise one-way ANOVA
-    for larger sample sizes, automatic method selection based on group sample
+    small-sample multi-group analysis, conventional gene-wise ANOVA for
+    larger sample sizes, automatic method selection based on group sample
     size, and pooled bin-wise IQR or fixed-threshold outlier trimming for
-    variance trend estimation.
+    variance trend estimation. Designs may be one-way or multi-way with
+    multiple main-effect factors (no interaction terms), specified via a
+    formula such as ~ group or ~ genotype + treatment.
 License: MIT + file LICENSE
 URL: https://ldy0012.github.io/LPEseq2/, https://github.com/ldy0012/LPEseq2
 BugReports: https://github.com/ldy0012/LPEseq2/issues
@@ -35,6 +37,7 @@ Imports:
     utils
 Suggests:
     shiny,
+    bslib,
     DT,
     Seurat,
     edgeR,
@@ -42,4 +45,4 @@ Suggests:
     Matrix,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
-Config/roxygen2/version: 8.0.0
+Config/roxygen2/version: 8.1.0

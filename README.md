@@ -1,10 +1,10 @@
 # LPEseq2
 
-LPEseq2 is an R package for differential expression analysis of RNA-seq count data using local pooled error-based ANOVA and conventional one-way ANOVA.
+LPEseq2 is an R package for differential expression analysis of RNA-seq count data using local pooled error-based ANOVA and conventional ANOVA, supporting both one-way and multi-way (interaction-free) designs.
 
 Many RNA-seq studies — including pilot experiments, rare clinical sample studies, and reanalyses of public datasets — are limited to one or two biological replicates per condition. This constraint is especially common in single-cell RNA-seq (scRNA-seq), where the high per-sample cost of library preparation and sequencing often restricts the number of biological donors to one or two per condition, even when large numbers of cells are profiled. Under these low-replicate conditions, conventional differential expression methods such as DESeq2 and edgeR may produce unreliable results or fail to run, because per-gene dispersion estimation becomes unstable.
 
-LPEseq2 addresses this by borrowing variance information across genes with similar expression intensities rather than estimating it per gene independently, making it applicable even when only one replicate per group is available. LPEseq2 supports LPE-ANOVA for small-sample RNA-seq data, standard gene-wise one-way ANOVA for larger sample sizes, and an automatic mode that selects the analysis method based on group sample size.
+LPEseq2 addresses this by borrowing variance information across genes with similar expression intensities rather than estimating it per gene independently, making it applicable even when only one replicate per group is available. LPEseq2 supports LPE-ANOVA for small-sample RNA-seq data, standard gene-wise ANOVA for larger sample sizes, and an automatic mode that selects the analysis method based on group sample size. The design can be one-way (`~ group`) or multi-way with multiple main-effect factors and no interaction terms (`~ genotype + treatment`); see [Multi-way (no-interaction) designs](#multi-way-no-interaction-designs).
 
 LPEseq2 also provides a Seurat-integrated pseudo-bulk workflow for cell-type-resolved differential expression analysis of annotated scRNA-seq data. This is particularly useful when the number of biological donors per condition is too small for conventional pseudo-bulk methods.
 
@@ -56,7 +56,7 @@ install.packages("Matrix")
 | Function | Description |
 | --- | --- |
 | `LPE_preprocess()` | Checks count matrix and sample metadata, filters low-count genes, and performs normalization |
-| `LPE_ANOVA()` | Performs LPE-ANOVA, standard one-way ANOVA, or automatic method selection for multi-group differential expression analysis |
+| `LPE_ANOVA()` | Performs LPE-ANOVA, standard ANOVA, or automatic method selection for one-way or multi-way (interaction-free) differential expression analysis |
 | `LPE_ANOVA_var()` | Estimates an intensity-dependent variance trend and stores trimming information |
 | `make_pseudobulk_from_seurat()` | Generates pseudo-bulk raw count matrices from an annotated Seurat object |
 | `LPE_pseudobulk()` | Runs LPEseq2 on cell-type-specific pseudo-bulk count matrices generated from a Seurat object |
@@ -380,8 +380,8 @@ LPEseq2 supports three analysis modes through the `analysis.method` argument:
 | Method | Description |
 | --- | --- |
 | `LPE` | Uses local pooled error-based ANOVA. Estimates an intensity-dependent pooled variance trend across genes and uses it as the denominator of an ANOVA-like statistic. Recommended for low-replicate settings. |
-| `standard_anova` | Uses conventional gene-wise one-way ANOVA based on within-group residual variance. More appropriate when each group has enough samples for stable per-gene variance estimation. |
-| `auto` | Automatically selects the analysis method based on the minimum group sample size. Uses standard one-way ANOVA when all groups meet `standard.min.group.n`; otherwise uses LPE-ANOVA. |
+| `standard_anova` | Uses conventional gene-wise ANOVA (Type II sums of squares for multi-way designs) based on within-group residual variance. More appropriate when each group/cell has enough samples for stable per-gene variance estimation. |
+| `auto` | Automatically selects the analysis method based on the minimum group (or, for multi-way designs, factor-level combination) sample size. Uses standard ANOVA when all groups/cells meet `standard.min.group.n`; otherwise uses LPE-ANOVA. |
 
 ### LPE-ANOVA mode
 
@@ -403,7 +403,7 @@ The `trim.method` argument controls outlier trimming for pairwise values
 used in variance trend estimation (`"iqr"`, `"dvalue"`, or `"none"`); see
 [Trimming options](#trimming-options) for details.
 
-### Standard one-way ANOVA mode
+### Standard ANOVA mode
 
 ```r
 res_standard <- LPE_ANOVA(
@@ -415,7 +415,7 @@ res_standard <- LPE_ANOVA(
 
 ### Auto mode
 
-In `auto` mode, LPEseq2 selects standard one-way ANOVA when every group has at least `standard.min.group.n` samples. Otherwise, LPE-ANOVA is used.
+In `auto` mode, LPEseq2 selects standard ANOVA when every group (or, for multi-way designs, every factor-level combination) has at least `standard.min.group.n` samples. Otherwise, LPE-ANOVA is used.
 
 ```r
 res_auto <- LPE_ANOVA(
@@ -433,6 +433,57 @@ attr(res_auto, "analysis.method")
 ```
 
 The default threshold is `standard.min.group.n = 5`. This is a practical heuristic and can be adjusted depending on the study design and the expected reliability of gene-wise variance estimation.
+
+---
+
+### Multi-way (no-interaction) designs
+
+`design` in `LPE_preprocess()` accepts more than one main-effect term, e.g. `~ genotype + treatment`. Interaction terms (`A:B` or `A*B`) are not supported and raise an error, since the LPE variance-trend / test-statistic machinery assumes an additive model.
+
+```r
+colData_mw <- data.frame(
+  genotype  = rep(rep(c("wt", "mut"), each = 2), times = 2),
+  treatment = rep(c("control", "drug"), each = 4),
+  row.names = colnames(counts_mw)
+)
+
+prep_mw <- LPE_preprocess(
+  counts = counts_mw,
+  colData = colData_mw,
+  design = ~ genotype + treatment,
+  normalize.method = "library_size",
+  verbose = FALSE
+)
+
+res_mw <- LPE_ANOVA(
+  object = prep_mw,
+  analysis.method = "auto",
+  standard.min.group.n = 5,
+  verbose = FALSE
+)
+
+head(res_mw)
+```
+
+Each design term's main effect is tested with a Type II sum-of-squares decomposition (comparing the full additive model against the model with that term dropped), which is order-independent for a main-effects-only design. For a one-way design, the result columns are unsuffixed (`MS_between`, `F`, `p.value`, `q.value`, ...) exactly as before. For a multi-way design, one set of columns is reported per term, suffixed by the term name, e.g.:
+
+```
+gene, mean, var, MS_between_genotype, F_genotype, p.value_genotype, q.value_genotype,
+MS_between_treatment, F_treatment, p.value_treatment, q.value_treatment, method
+```
+
+`variance.eval = "per_group"` (Welch-style, per-group variance evaluation) is only supported for one-way designs; it raises an error for multi-way designs; use `variance.eval = "grand_mean"` (the default) instead. `attr(res, "design.terms")` reports the design term names that were tested.
+
+Column names that are not syntactically valid R names (for example `time point`, containing a space) can be used in `design` if they are backquoted, e.g. `~ genotype + `time point``; the output columns are then named `F_time point`, `q.value_time point`, and so on.
+
+#### Multi-way analysis in the Shiny web tool
+
+In the Shiny web tool, press the **+** button under *Group variable* to add another group factor (another metadata column to test); **−** removes the last one. Each added dropdown corresponds to one additional main-effect term of the design formula (`~ A + B + ...`), and a result column set is reported per factor as described above. Notes:
+
+- Every group factor must be a different metadata column with at least two levels and no missing values.
+- Interactions are not modeled.
+- With two or more group factors the *Variance evaluation* option is fixed to `grand_mean` (per-group/Welch evaluation is one-way only).
+- In `auto` mode the minimum group size is checked over every combination of the factor levels.
 
 ---
 
@@ -520,7 +571,7 @@ Outlier detection is performed on the M-value scale because M is the scale used 
 | `gene` | Gene identifier from the row names of the input expression matrix |
 | `mean` | Mean expression value of the gene across samples |
 | `var` | Estimated variance used in the test. For LPE-ANOVA, this is the intensity-dependent pooled variance σ²(A) predicted from the spline. For standard ANOVA, this is the within-group residual variance. |
-| `MS_between` | Between-group mean square (numerator of the test statistic) |
+| `MS_between` | Between-group mean square (numerator of the test statistic). For multi-way designs this column and the next four are reported once per design term as `MS_between_<term>`, `F_<term>`, `p.value_<term>`, `q.value_<term>` (`df1_<term>` as well for standard ANOVA). |
 | `F` | Test statistic |
 | `p.value` | Raw p-value |
 | `q.value` | Benjamini-Hochberg adjusted p-value. Treat as an approximate ranking measure, not a calibrated FDR guarantee. |
@@ -535,7 +586,7 @@ Outlier detection is performed on the M-value scale because M is the scale used 
 | `"grand_mean"` (default) | Variance is evaluated once at the grand mean expression level, shared across all groups. Matches classical equal-variance ANOVA. |
 | `"per_group"` | Variance is evaluated separately at each group's own mean expression level (Welch-style weighted ANOVA). Mathematically equivalent to LPEseq1's z-test when k=2. Recommended when group means differ substantially in expression intensity. |
 
-#### Additional columns for standard one-way ANOVA
+#### Additional columns for standard ANOVA
 
 When `analysis.method = "standard_anova"` is used, the result may also include:
 
