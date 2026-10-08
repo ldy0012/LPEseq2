@@ -127,29 +127,29 @@ LPE_ANOVA_var <- function(expr,
   #    values and trimmed within expression-intensity A-bins later.
   # -----------------------------
 
-  for (g in seq_len(nrow(expr))) {
-    y <- expr[g, ]
+  # Vectorized over genes (previously grown with c() inside a per-gene
+  # loop, which is O(G^2)). Element order is unchanged: gene-major, then
+  # group, then (+D block, -D block), so downstream results are identical.
+  within_blocks <- lapply(seq_len(k), function(i) {
+    idx <- split_index[[i]]
+    if (length(idx) < 2) return(NULL)
+    comb <- utils::combn(idx, 2)
+    yi <- expr[, comb[1, ], drop = FALSE]
+    yj <- expr[, comb[2, ], drop = FALSE]
+    d_raw <- yi - yj
+    a_val <- (yi + yj) / 2
+    list(D = cbind(d_raw, -d_raw),
+         A = cbind(a_val, a_val))
+  })
+  within_blocks <- Filter(Negate(is.null), within_blocks)
 
-    for (i in seq_len(k)) {
-      idx <- split_index[[i]]
-      ni <- length(idx)
-
-      if (ni >= 2) {
-        comb <- utils::combn(idx, 2)
-
-        yi <- y[comb[1, ]]
-        yj <- y[comb[2, ]]
-
-        d_raw <- yi - yj
-        a_val <- (yi + yj) / 2
-        w_val <- rep(1, ncol(comb))
-
-        D_within <- c(D_within, d_raw, -d_raw)
-        M_within <- c(M_within, d_raw / sqrt(2), -d_raw / sqrt(2))
-        A_within <- c(A_within, a_val, a_val)
-        W_within <- c(W_within, w_val, w_val)
-      }
-    }
+  if (length(within_blocks) > 0) {
+    D_mat <- do.call(cbind, lapply(within_blocks, `[[`, "D"))
+    A_mat <- do.call(cbind, lapply(within_blocks, `[[`, "A"))
+    D_within <- as.vector(t(D_mat))
+    M_within <- D_within / sqrt(2)
+    A_within <- as.vector(t(A_mat))
+    W_within <- rep(1, length(D_within))
   }
 
   # Keep only valid within-group values
@@ -179,32 +179,29 @@ LPE_ANOVA_var <- function(expr,
       "the conventional 1.5*IQR rule. If trim.method = 'dvalue', both are ",
       "trimmed using the fixed M-scale threshold (d.threshold/sqrt(2))."
     )
-    for (g in seq_len(nrow(expr))) {
-      y <- expr[g, ]
-      group_means <- sapply(split_index, function(idx) mean(y[idx]))
-      comb_groups <- utils::combn(seq_len(k), 2)
+    # Vectorized over genes (see within-group block). Order unchanged:
+    # gene-major, then group pair, then (+, -).
+    group_means <- vapply(split_index,
+                          function(idx) apply(expr[, idx, drop = FALSE], 1, mean),
+                          numeric(nrow(expr)))
+    if (!is.matrix(group_means)) group_means <- matrix(group_means, nrow = 1)
+    comb_groups <- utils::combn(seq_len(k), 2)
+    i1 <- comb_groups[1, ]
+    i2 <- comb_groups[2, ]
+    n1 <- as.numeric(n_i[i1])
+    n2 <- as.numeric(n_i[i2])
 
-      for (j in seq_len(ncol(comb_groups))) {
-        i1 <- comb_groups[1, j]
-        i2 <- comb_groups[2, j]
+    d_raw <- group_means[, i1, drop = FALSE] - group_means[, i2, drop = FALSE]
+    m_star <- sweep(d_raw, 2, sqrt(1 / n1 + 1 / n2), "/")
+    a_val <- (group_means[, i1, drop = FALSE] + group_means[, i2, drop = FALSE]) / 2
+    alpha <- pmin(n1, n2) / (n1 + n2)
 
-        n1 <- as.numeric(n_i[i1])
-        n2 <- as.numeric(n_i[i2])
-
-        d_raw <- group_means[i1] - group_means[i2]
-
-        m_star <- d_raw / sqrt(1 / n1 + 1 / n2)
-
-        a_val <- (group_means[i1] + group_means[i2]) / 2
-
-        alpha <- min(n1, n2) / (n1 + n2)
-
-        D_between <- c(D_between, d_raw, -d_raw)
-        M_between <- c(M_between, m_star, -m_star)
-        A_between <- c(A_between, a_val, a_val)
-        W_between <- c(W_between, alpha, alpha)
-      }
-    }
+    # interleave columns as (pair1 +, pair1 -, pair2 +, pair2 -, ...)
+    ord <- as.vector(rbind(seq_along(i1), seq_along(i1) + length(i1)))
+    D_between <- as.vector(t(cbind(d_raw, -d_raw)[, ord, drop = FALSE]))
+    M_between <- as.vector(t(cbind(m_star, -m_star)[, ord, drop = FALSE]))
+    A_between <- as.vector(t(cbind(a_val, a_val)[, ord, drop = FALSE]))
+    W_between <- rep(rep(alpha, each = 2), times = nrow(expr))
   }
 
   # -----------------------------
@@ -225,22 +222,16 @@ LPE_ANOVA_var <- function(expr,
       "P-values should be interpreted cautiously."
     )
 
-    for (g in seq_len(nrow(expr))) {
-      y <- expr[g, ]
-      comb_g <- utils::combn(seq_len(k), 2)
+    comb_g <- utils::combn(seq_len(k), 2)
+    yi <- expr[, comb_g[1, ], drop = FALSE]
+    yj <- expr[, comb_g[2, ], drop = FALSE]
+    d_raw <- yi - yj
+    a_val <- (yi + yj) / 2
 
-      yi <- y[comb_g[1, ]]
-      yj <- y[comb_g[2, ]]
-
-      d_raw <- yi - yj
-      a_val <- (yi + yj) / 2
-      w_val <- rep(1, ncol(comb_g))
-
-      D_between <- c(D_between, d_raw, -d_raw)
-      M_between <- c(M_between, d_raw / sqrt(2), -d_raw / sqrt(2))
-      A_between <- c(A_between, a_val, a_val)
-      W_between <- c(W_between, w_val, w_val)
-    }
+    D_between <- c(D_between, as.vector(t(cbind(d_raw, -d_raw))))
+    M_between <- c(M_between, as.vector(t(cbind(d_raw, -d_raw))) / sqrt(2))
+    A_between <- c(A_between, as.vector(t(cbind(a_val, a_val))))
+    W_between <- c(W_between, rep(1, 2 * length(d_raw)))
   }
 
   # -----------------------------
