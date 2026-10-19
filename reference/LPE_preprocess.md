@@ -33,7 +33,12 @@ LPE_preprocess(
 
 - design:
 
-  A one-way design formula, such as `~ group`.
+  A design formula with no left-hand side, e.g. `~ group` or
+  `~ genotype + treatment`. One or more main-effect terms are supported
+  (multi-way ANOVA without interaction); interaction terms (`A:B` or
+  `A*B`) are not supported and will raise an error. Every term must name
+  a column of `colData` that can be coerced to a factor with at least
+  two levels.
 
 - normalize.method:
 
@@ -58,5 +63,8 @@ LPE_preprocess(
 
 ## Value
 
-A list containing normalized expression matrix, group factor, design,
-colData, and preprocessing options.
+A list containing normalized expression matrix, a factor identifying
+each unique combination of the design factors (`group`, kept for
+backward compatibility with one-way designs), a named list of the
+individual design factors (`factors`), design, colData, and
+preprocessing options.
