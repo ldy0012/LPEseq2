@@ -1,3 +1,32 @@
+# LPEseq2 0.1.0
+
+* `LPE_ANOVA()` / `LPE_pseudobulk()`: new default `trim.method = "auto"` and
+  `use_weighted_between = "auto"`. The variance-training pairs are chosen
+  from the replication of the design cells: when every cell has at least two
+  samples, only within-cell replicate pairs are used, without trimming
+  (`use_weighted_between = FALSE`, `trim.method = "none"`); when any cell has a
+  single sample, weighted between-group pairs are added and D-value trimming is
+  applied (`TRUE`, `"dvalue"`, the previous default). This follows LPEseq1,
+  which uses replicate pairs without outlier removal for replicated groups.
+  In simulations of cell-line-like data, trimming replicate pairs
+  under-estimated the variance (mean FDR about 0.12 at a nominal 0.05 with
+  two or three replicates), while replicate pairs without trimming kept the
+  FDR closer to nominal (about 0.075) with a similar F1.
+  **Results with replicates in every group differ from version 0.0.1 when the
+  defaults are used.** To reproduce 0.0.1, set
+  `trim.method = "dvalue", use_weighted_between = TRUE`.
+  Explicitly supplied values are used unchanged.
+
+* The settings actually used are returned in `attr(res, "variance.settings")`
+  (`trim.method`, `use_weighted_between`, `auto`, `replicated`, `min_cell_n`,
+  `rule`); `LPE_pseudobulk()` adds a `variance_training` column per cell type.
+
+* Shiny web tool: "Pairwise outlier trimming method" and "Use weighted
+  between-group differences" offer "Auto by replication (recommended)" as the
+  default (the latter is now a drop-down instead of a check box). The resolved
+  setting is shown under Method info and written to the downloaded results
+  (`variance_training` column).
+
 # LPEseq2 0.0.1
 
 * Shiny web tool (`app.R`): the single "Group variable" dropdown is replaced by a

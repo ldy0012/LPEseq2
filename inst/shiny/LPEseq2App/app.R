@@ -481,11 +481,17 @@ ui <- fluidPage(
                 "trim_method",
                 "Pairwise outlier trimming method",
                 choices = c(
+                  "Auto by replication (recommended)" = "auto",
                   "Pooled bin-wise IQR" = "iqr",
                   "Fixed D-value threshold (LPEseq1)" = "dvalue",
                   "None" = "none"
                 ),
-                selected = "dvalue"
+                selected = "auto"
+              ),
+
+              helpText(
+                "Auto: if every group (every combination of factor levels) has at least two samples, ",
+                "replicate pairs are used without trimming; otherwise the fixed D-value threshold is used. "
               ),
 
               helpText(
@@ -498,7 +504,7 @@ ui <- fluidPage(
             column(
               2,
               conditionalPanel(
-                condition = "input.trim_method == 'dvalue'",
+                condition = "input.trim_method == 'dvalue' || input.trim_method == 'auto'",
 
                 numericInput(
                   "d_threshold",
@@ -522,14 +528,21 @@ ui <- fluidPage(
 
             column(
               3,
-              checkboxInput(
+              selectInput(
                 "use_weighted_between",
                 "Use weighted between-group differences",
-                value = TRUE
+                choices = c(
+                  "Auto by replication (recommended)" = "auto",
+                  "Yes" = "TRUE",
+                  "No" = "FALSE"
+                ),
+                selected = "auto"
               ),
 
               helpText(
-                "If checked, between-group-derived values are also included in variance trend estimation. ",
+                "Auto: not used when every group has at least two samples (replicate pairs only); ",
+                "used when any group has a single sample. ",
+                "If used, between-group-derived values are also included in variance trend estimation. ",
                 "When IQR trimming is selected, within-group and between-group-derived values are pooled before bin-wise IQR trimming."
               ),
 
@@ -874,8 +887,13 @@ server <- function(input, output, session) {
 
       lpe_n_bin              <- if (is.null(input$n_bin)) 100 else input$n_bin
       lpe_df                 <- if (is.null(input$df)) 10 else input$df
-      lpe_trim_method <- if (is.null(input$trim_method)) "dvalue" else input$trim_method
-      lpe_use_weighted_between <- if (is.null(input$use_weighted_between)) TRUE else input$use_weighted_between
+      lpe_trim_method <- if (is.null(input$trim_method)) "auto" else input$trim_method
+      lpe_use_weighted_between <- if (is.null(input$use_weighted_between) ||
+                                      identical(input$use_weighted_between, "auto")) {
+        "auto"
+      } else {
+        as.logical(input$use_weighted_between)
+      }
       lpe_d_threshold        <- if (is.null(input$d_threshold)) 1.2 else input$d_threshold
       lpe_p_method           <- if (is.null(input$p_method)) "chisq" else input$p_method
       auto_min_group_n       <- if (is.null(input$standard_min_group_n)) 5 else input$standard_min_group_n
@@ -1138,6 +1156,19 @@ server <- function(input, output, session) {
       cat("  has at least standard.min.group.n samples: standard ANOVA\n")
       cat("- Otherwise: LPE-ANOVA\n")
     }
+
+    vs <- attr(analysis_result(), "variance.settings")
+    if (!is.null(vs)) {
+      cat("\nVariance training used:", vs$rule, "\n")
+      cat("  trim.method =", vs$trim.method,
+          "| use_weighted_between =", vs$use_weighted_between,
+          if (isTRUE(vs$auto)) "(resolved from 'auto')" else "", "\n")
+      if (isTRUE(vs$auto)) {
+        cat("Auto rule for variance training:\n")
+        cat("- Every group has >= 2 samples: replicate pairs only, no trimming\n")
+        cat("- Otherwise: replicate + weighted between-group pairs, D-value trimming\n")
+      }
+    }
   })
 
   output$trend_info <- renderPrint({
@@ -1246,7 +1277,10 @@ server <- function(input, output, session) {
       paste0("LPEseq2_results_", Sys.Date(), ".csv")
     },
     content = function(file) {
-      write.csv(analysis_result(), file, row.names = FALSE)
+      out <- analysis_result()
+      vs <- attr(out, "variance.settings")
+      if (!is.null(vs)) out$variance_training <- vs$rule
+      write.csv(out, file, row.names = FALSE)
     }
   )
 
@@ -1390,7 +1424,10 @@ server <- function(input, output, session) {
       cat("spline df: ", input$df, "\n")
       cat("use_weighted_between: ", input$use_weighted_between, "\n")
       cat("trimming method: ", input$trim_method, "\n")
-      if (input$trim_method == "dvalue") {
+      if (input$trim_method == "auto" || identical(input$use_weighted_between, "auto")) {
+        cat("  ('auto' is resolved from the group sizes when the analysis runs; see Method info)\n")
+      }
+      if (input$trim_method %in% c("dvalue", "auto")) {
         cat("d.threshold: ", input$d_threshold, "\n")
       }
       cat("p-value method: ", input$p_method, "\n")

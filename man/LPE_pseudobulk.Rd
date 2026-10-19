@@ -24,9 +24,9 @@ LPE_pseudobulk(
   standard.min.group.n = 5,
   n.bin = 100,
   df = 10,
-  trim.method = c("dvalue", "iqr", "none"),
+  trim.method = c("auto", "dvalue", "iqr", "none"),
   d.threshold = 1.2,
-  use_weighted_between = TRUE,
+  use_weighted_between = "auto",
   p.method = c("chisq", "F_inf"),
   verbose = TRUE
 )
@@ -99,8 +99,11 @@ variance trend estimation.}
 \item{df}{Numeric value specifying the degrees of freedom for spline smoothing.}
 
 \item{trim.method}{Character string specifying the trimming method used during
-variance trend estimation. One of \code{"iqr"}, \code{"dvalue"}, or
-\code{"none"}. \code{"dvalue"} applies a fixed threshold to the M value
+variance trend estimation. One of \code{"auto"} (default), \code{"dvalue"},
+\code{"iqr"}, or \code{"none"}. \code{"auto"} is resolved separately for
+each cell type by \code{\link{LPE_ANOVA}}: \code{"none"} when every
+design cell has at least two pseudo-bulk samples, otherwise
+\code{"dvalue"}. \code{"dvalue"} applies a fixed threshold to the M value
 (the rescaled pairwise difference actually used for variance
 estimation), derived from \code{d.threshold} as \code{d.threshold/sqrt(2)},
 following LPEseq1's non-replicate outlier procedure (Gim et al. 2016).
@@ -108,11 +111,15 @@ See \code{\link{LPE_ANOVA_var}} for details.}
 
 \item{d.threshold}{Numeric. Threshold on the LPEseq1 raw-D scale, used to
 derive the fixed M-scale cutoff applied when
-\code{trim.method = "dvalue"}. Default 1.2, matching
-\code{\link{LPE_ANOVA}}. Ignored for other \code{trim.method} values.}
+\code{trim.method = "dvalue"} (also when \code{"auto"} resolves to it).
+Default 1.2, matching \code{\link{LPE_ANOVA}}. Ignored otherwise.}
 
-\item{use_weighted_between}{Logical. Whether to use weighted between-group
-variance information in LPE-ANOVA.}
+\item{use_weighted_between}{\code{"auto"} (default), \code{TRUE} or
+\code{FALSE}. Whether to use weighted between-group variance information
+in LPE-ANOVA. \code{"auto"} uses \code{FALSE} when every design cell has
+at least two pseudo-bulk samples, otherwise \code{TRUE} (see
+\code{\link{LPE_ANOVA}}). The setting used for each cell type is
+reported in the \code{variance_training} column.}
 
 \item{p.method}{Character string specifying the p-value calculation method.
 One of \code{"chisq"} or \code{"F_inf"}.}

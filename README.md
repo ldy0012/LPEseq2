@@ -397,11 +397,14 @@ res_lpe <- LPE_ANOVA(
 )
 ```
 
-The `use_weighted_between` argument controls whether between-group-derived pairwise values are incorporated into variance trend estimation when within-group pairs are sparse. When `TRUE`, these values are included with IQR-based trimming to reduce contamination from true biological group differences. This option is particularly useful for non-replicated data where within-group pairs are unavailable.
+The `use_weighted_between` argument controls whether between-group-derived pairwise values are incorporated into variance trend estimation when within-group pairs are sparse. When `TRUE`, these values are included (and should be trimmed) to reduce contamination from true biological group differences. This option is needed for non-replicated data where within-group pairs are unavailable.
 
 The `trim.method` argument controls outlier trimming for pairwise values
-used in variance trend estimation (`"iqr"`, `"dvalue"`, or `"none"`); see
+used in variance trend estimation (`"auto"`, `"dvalue"`, `"iqr"`, or `"none"`); see
 [Trimming options](#trimming-options) for details.
+
+By default both arguments are `"auto"`; see
+[Automatic variance-training settings](#automatic-variance-training-settings).
 
 ### Standard ANOVA mode
 
@@ -536,9 +539,31 @@ Biological follow-up validation is recommended for all candidate genes prioritiz
 
 ---
 
+## Automatic variance-training settings
+
+With the defaults `trim.method = "auto"` and `use_weighted_between = "auto"`, `LPE_ANOVA()` and `LPE_pseudobulk()` choose which pairwise values train the variance trend from the replication of the design cells (unique combinations of the design factor levels):
+
+| Design | `use_weighted_between` | `trim.method` | Pairwise values used |
+| ------ | ---------------------- | ------------- | -------------------- |
+| every cell has ≥ 2 samples | `FALSE` | `"none"` | within-cell replicate pairs, no trimming |
+| at least one cell has 1 sample | `TRUE` | `"dvalue"` | within-cell pairs (if any) + weighted between-group pairs, D-value trimming |
+
+Replicate pairs contain no treatment effect, so trimming them only removes genuine noise and under-estimates the variance (liberal calls); between-group pairs contain true effects and must be trimmed. The rule follows LPEseq1 (Gim et al. 2016), which uses replicate pairs without outlier removal whenever a group is replicated, and trimmed between-condition pairs only for non-replicated groups. Values given explicitly are always used as given. The settings actually used are stored in `attr(res, "variance.settings")` (and in the `variance_training` column of `LPE_pseudobulk()` results).
+
+```r
+res <- LPE_ANOVA(obj)                       # auto
+attr(res, "variance.settings")$rule
+#> "within-group (replicate) pairs only, no trimming (smallest cell n = 3)"
+
+res_old <- LPE_ANOVA(obj, trim.method = "dvalue",
+                     use_weighted_between = TRUE)   # behaviour of LPEseq2 <= 0.0.1
+```
+
+---
+
 ## Trimming options
 
-LPEseq2 supports IQR-based and fixed-threshold (dvalue) outlier trimming for pairwise values used in variance trend estimation.
+LPEseq2 supports IQR-based and fixed-threshold (dvalue) outlier trimming for pairwise values used in variance trend estimation. The default `trim.method = "auto"` selects `"none"` or `"dvalue"` as described in [Automatic variance-training settings](#automatic-variance-training-settings).
 
 | Method   | Description                                                                                                                                             |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |

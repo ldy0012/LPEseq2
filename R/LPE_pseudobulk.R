@@ -53,18 +53,25 @@
 #'   variance trend estimation.
 #' @param df Numeric value specifying the degrees of freedom for spline smoothing.
 #' @param trim.method Character string specifying the trimming method used during
-#'   variance trend estimation. One of \code{"iqr"}, \code{"dvalue"}, or
-#'   \code{"none"}. \code{"dvalue"} applies a fixed threshold to the M value
+#'   variance trend estimation. One of \code{"auto"} (default), \code{"dvalue"},
+#'   \code{"iqr"}, or \code{"none"}. \code{"auto"} is resolved separately for
+#'   each cell type by \code{\link{LPE_ANOVA}}: \code{"none"} when every
+#'   design cell has at least two pseudo-bulk samples, otherwise
+#'   \code{"dvalue"}. \code{"dvalue"} applies a fixed threshold to the M value
 #'   (the rescaled pairwise difference actually used for variance
 #'   estimation), derived from \code{d.threshold} as \code{d.threshold/sqrt(2)},
 #'   following LPEseq1's non-replicate outlier procedure (Gim et al. 2016).
 #'   See \code{\link{LPE_ANOVA_var}} for details.
 #' @param d.threshold Numeric. Threshold on the LPEseq1 raw-D scale, used to
 #'   derive the fixed M-scale cutoff applied when
-#'   \code{trim.method = "dvalue"}. Default 1.2, matching
-#'   \code{\link{LPE_ANOVA}}. Ignored for other \code{trim.method} values.
-#' @param use_weighted_between Logical. Whether to use weighted between-group
-#'   variance information in LPE-ANOVA.
+#'   \code{trim.method = "dvalue"} (also when \code{"auto"} resolves to it).
+#'   Default 1.2, matching \code{\link{LPE_ANOVA}}. Ignored otherwise.
+#' @param use_weighted_between \code{"auto"} (default), \code{TRUE} or
+#'   \code{FALSE}. Whether to use weighted between-group variance information
+#'   in LPE-ANOVA. \code{"auto"} uses \code{FALSE} when every design cell has
+#'   at least two pseudo-bulk samples, otherwise \code{TRUE} (see
+#'   \code{\link{LPE_ANOVA}}). The setting used for each cell type is
+#'   reported in the \code{variance_training} column.
 #' @param p.method Character string specifying the p-value calculation method.
 #'   One of \code{"chisq"} or \code{"F_inf"}.
 #' @param verbose Logical. Whether to print progress messages.
@@ -170,9 +177,9 @@ LPE_pseudobulk <- function(
     standard.min.group.n = 5,
     n.bin = 100,
     df = 10,
-    trim.method = c("dvalue", "iqr", "none"),
+    trim.method = c("auto", "dvalue", "iqr", "none"),
     d.threshold = 1.2,
-    use_weighted_between = TRUE,
+    use_weighted_between = "auto",
     p.method = c("chisq", "F_inf"),
     verbose = TRUE
 ) {
@@ -182,10 +189,16 @@ LPE_pseudobulk <- function(
   trim.method <- match.arg(trim.method)
   p.method <- match.arg(p.method)
 
-  if (trim.method == "dvalue") {
+  if (trim.method %in% c("dvalue", "auto")) {
     if (!is.numeric(d.threshold) || length(d.threshold) != 1 || d.threshold <= 0) {
       stop("d.threshold must be a single positive numeric value")
     }
+  }
+
+  if (!(identical(use_weighted_between, "auto") ||
+        (is.logical(use_weighted_between) && length(use_weighted_between) == 1 &&
+         !is.na(use_weighted_between)))) {
+    stop('use_weighted_between must be TRUE, FALSE or "auto"')
   }
 
   # ------------------------------------------------------------
@@ -391,6 +404,10 @@ LPE_pseudobulk <- function(
         }
 
         res$selected_LPEseq2_method <- selected_method
+
+        # variance-training setting actually used ("auto" resolved per cell type)
+        vs <- attr(res, "variance.settings")
+        res$variance_training <- if (is.null(vs)) NA_character_ else vs$rule
 
         # Move important annotation columns to the front
         front_cols <- intersect(

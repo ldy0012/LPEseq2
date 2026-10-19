@@ -8,10 +8,17 @@
 #' @param n.bin Number of quantile bins used for variance trend estimation.
 #' @param df Degrees of freedom for smoothing spline.
 #' @param trim.method Outlier trimming method applied to pairwise values
-#'   used for variance trend estimation. One of \code{"iqr"}, \code{"dvalue"},
-#'   or \code{"none"}. See \code{\link{LPE_ANOVA_var}} for details.
-#' @param use_weighted_between Logical. Whether to include weighted between-group
-#'   differences in variance trend estimation.
+#'   used for variance trend estimation. One of \code{"auto"} (default),
+#'   \code{"dvalue"}, \code{"iqr"}, or \code{"none"}. \code{"auto"} chooses
+#'   by replication (see \emph{Automatic variance-training settings} in
+#'   Details): \code{"none"} when every design cell has at least two samples,
+#'   otherwise \code{"dvalue"}. See \code{\link{LPE_ANOVA_var}} for the
+#'   trimming rules.
+#' @param use_weighted_between \code{"auto"} (default), \code{TRUE} or
+#'   \code{FALSE}. Whether to include weighted between-group differences in
+#'   variance trend estimation. \code{"auto"} uses \code{FALSE} when every
+#'   design cell has at least two samples (replicate pairs only), otherwise
+#'   \code{TRUE}.
 #' @param d.threshold Numeric. Threshold on the LPEseq1 raw-D scale, used to
 #'   derive the fixed M-scale cutoff (\code{d.threshold/sqrt(2)}) applied
 #'   when \code{trim.method = "dvalue"}. Default 1.2, matching the default
@@ -58,8 +65,32 @@
 #'   the fitted variance trend object are stored in
 #'   \code{attr(result, "trim.info")}, \code{attr(result, "trend.info")},
 #'   \code{attr(result, "base.var")}, and \code{attr(result, "var.spline")}.
+#'   The variance-training settings actually used (after resolving
+#'   \code{"auto"}) are stored in \code{attr(result, "variance.settings")}.
 #'
 #' @details
+#' \strong{Automatic variance-training settings.} With the defaults
+#' \code{trim.method = "auto"} and \code{use_weighted_between = "auto"}, the
+#' pairwise values used to estimate the variance trend are chosen from the
+#' replication of the design cells (unique combinations of the design factor
+#' levels):
+#' \itemize{
+#'   \item every cell has at least two samples: within-cell replicate pairs
+#'     only, without trimming (\code{use_weighted_between = FALSE},
+#'     \code{trim.method = "none"}). Replicate pairs contain no treatment
+#'     effect, so trimming them would only remove genuine noise and
+#'     under-estimate the variance.
+#'   \item at least one cell has a single sample: within-cell pairs (if any)
+#'     plus weighted between-group pairs with fixed-threshold trimming
+#'     (\code{use_weighted_between = TRUE}, \code{trim.method = "dvalue"}),
+#'     the non-replicate procedure of LPEseq1 (Gim et al. 2016).
+#' }
+#' This mirrors LPEseq1, which uses within-group replicate pairs without
+#' outlier removal whenever a group is replicated and the outlier-trimmed
+#' between-condition pairs only for non-replicated groups. A value given
+#' explicitly for either argument is always used as given.
+#'
+#' \strong{Multi-way designs.}
 #' For a multi-way design \code{~ A + B + ...} (no interaction terms
 #' allowed), each design term's main effect is tested by comparing, per
 #' gene, the full additive model against the model with that term dropped:
@@ -74,8 +105,8 @@
 #'
 #' @export
 LPE_ANOVA <- function(object, n.bin = 100, df = 10,
-                      trim.method = c("dvalue", "iqr", "none"),
-                      use_weighted_between = TRUE, d.threshold = 1.2,
+                      trim.method = c("auto", "dvalue", "iqr", "none"),
+                      use_weighted_between = "auto", d.threshold = 1.2,
                       analysis.method = c("LPE", "standard_anova", "auto"),
                       standard.min.group.n = 5, verbose = TRUE,
                       p.method = c("chisq", "F_inf"),
@@ -138,8 +169,10 @@ LPE_ANOVA <- function(object, n.bin = 100, df = 10,
     stop("verbose must be TRUE or FALSE")
   }
 
-  if (!is.logical(use_weighted_between) || length(use_weighted_between) != 1) {
-    stop("use_weighted_between must be TRUE or FALSE")
+  if (!(identical(use_weighted_between, "auto") ||
+        (is.logical(use_weighted_between) && length(use_weighted_between) == 1 &&
+         !is.na(use_weighted_between)))) {
+    stop('use_weighted_between must be TRUE, FALSE or "auto"')
   }
 
   if (!is.numeric(standard.min.group.n) ||
@@ -162,6 +195,11 @@ LPE_ANOVA <- function(object, n.bin = 100, df = 10,
   if (k < 2) {
     stop("At least two groups are required")
   }
+
+  # resolve "auto" variance-training settings from the cell sizes
+  variance.settings <- resolve_variance_settings(n_i, trim.method, use_weighted_between)
+  trim.method <- variance.settings$trim.method
+  use_weighted_between <- variance.settings$use_weighted_between
 
   selected.method <- analysis.method
 
@@ -200,12 +238,15 @@ LPE_ANOVA <- function(object, n.bin = 100, df = 10,
     attr(res, "trend.info") <- NULL
     attr(res, "base.var") <- NULL
     attr(res, "var.spline") <- NULL
+    attr(res, "variance.settings") <- NULL
 
     return(res)
   }
 
   if (verbose) {
     cat("Running LPE-ANOVA\n")
+    cat("Variance training: ", variance.settings$rule,
+        if (variance.settings$auto) " [auto]" else "", "\n", sep = "")
   }
 
   # -----------------------------
@@ -415,6 +456,45 @@ LPE_ANOVA <- function(object, n.bin = 100, df = 10,
   attr(res, "trend.info") <- trend.info
   attr(res, "base.var") <- base.var
   attr(res, "var.spline") <- var.result
+  attr(res, "variance.settings") <- variance.settings
 
   return(res)
+}
+
+
+#' Resolve automatic variance-training settings
+#'
+#' Internal helper used by \code{LPE_ANOVA()}: replaces \code{"auto"} in
+#' \code{trim.method} / \code{use_weighted_between} by concrete values from
+#' the design-cell sizes. Explicit values are returned unchanged.
+#'
+#' @param n_i Table (or integer vector) of samples per design cell.
+#' @param trim.method One of \code{"auto"}, \code{"dvalue"}, \code{"iqr"},
+#'   \code{"none"}.
+#' @param use_weighted_between \code{"auto"}, \code{TRUE} or \code{FALSE}.
+#' @return A list with \code{trim.method}, \code{use_weighted_between},
+#'   \code{auto} (whether any argument was \code{"auto"}),
+#'   \code{replicated} (all cells have at least two samples),
+#'   \code{min_cell_n}, and a readable \code{rule}.
+#' @keywords internal
+#' @noRd
+resolve_variance_settings <- function(n_i, trim.method, use_weighted_between) {
+  replicated <- all(as.integer(n_i) >= 2)
+  auto_trim <- identical(trim.method, "auto")
+  auto_between <- identical(use_weighted_between, "auto")
+
+  if (auto_trim) trim.method <- if (replicated) "none" else "dvalue"
+  if (auto_between) use_weighted_between <- !replicated
+
+  pairs <- if (use_weighted_between) "within- and weighted between-group pairs" else
+    "within-group (replicate) pairs only"
+  trim <- switch(trim.method, none = "no trimming", dvalue = "dvalue trimming",
+                 iqr = "IQR trimming")
+
+  list(trim.method = trim.method,
+       use_weighted_between = use_weighted_between,
+       auto = auto_trim || auto_between,
+       replicated = replicated,
+       min_cell_n = min(as.integer(n_i)),
+       rule = paste0(pairs, ", ", trim, " (smallest cell n = ", min(as.integer(n_i)), ")"))
 }

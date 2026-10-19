@@ -8,8 +8,8 @@ LPE_ANOVA(
   object,
   n.bin = 100,
   df = 10,
-  trim.method = c("dvalue", "iqr", "none"),
-  use_weighted_between = TRUE,
+  trim.method = c("auto", "dvalue", "iqr", "none"),
+  use_weighted_between = "auto",
   d.threshold = 1.2,
   analysis.method = c("LPE", "standard_anova", "auto"),
   standard.min.group.n = 5,
@@ -26,11 +26,18 @@ LPE_ANOVA(
 \item{df}{Degrees of freedom for smoothing spline.}
 
 \item{trim.method}{Outlier trimming method applied to pairwise values
-used for variance trend estimation. One of \code{"iqr"}, \code{"dvalue"},
-or \code{"none"}. See \code{\link{LPE_ANOVA_var}} for details.}
+used for variance trend estimation. One of \code{"auto"} (default),
+\code{"dvalue"}, \code{"iqr"}, or \code{"none"}. \code{"auto"} chooses
+by replication (see \emph{Automatic variance-training settings} in
+Details): \code{"none"} when every design cell has at least two samples,
+otherwise \code{"dvalue"}. See \code{\link{LPE_ANOVA_var}} for the
+trimming rules.}
 
-\item{use_weighted_between}{Logical. Whether to include weighted between-group
-differences in variance trend estimation.}
+\item{use_weighted_between}{\code{"auto"} (default), \code{TRUE} or
+\code{FALSE}. Whether to include weighted between-group differences in
+variance trend estimation. \code{"auto"} uses \code{FALSE} when every
+design cell has at least two samples (replicate pairs only), otherwise
+\code{TRUE}.}
 
 \item{d.threshold}{Numeric. Threshold on the LPEseq1 raw-D scale, used to
 derive the fixed M-scale cutoff (\code{d.threshold/sqrt(2)}) applied
@@ -85,6 +92,8 @@ information, variance trend information, bin-level variance points, and
 the fitted variance trend object are stored in
 \code{attr(result, "trim.info")}, \code{attr(result, "trend.info")},
 \code{attr(result, "base.var")}, and \code{attr(result, "var.spline")}.
+The variance-training settings actually used (after resolving
+\code{"auto"}) are stored in \code{attr(result, "variance.settings")}.
 }
 \description{
 Performs multi-group (and multi-way, interaction-free) differential
@@ -92,6 +101,28 @@ expression analysis using an intensity-dependent local pooled error
 variance trend.
 }
 \details{
+\strong{Automatic variance-training settings.} With the defaults
+\code{trim.method = "auto"} and \code{use_weighted_between = "auto"}, the
+pairwise values used to estimate the variance trend are chosen from the
+replication of the design cells (unique combinations of the design factor
+levels):
+\itemize{
+\item every cell has at least two samples: within-cell replicate pairs
+only, without trimming (\code{use_weighted_between = FALSE},
+\code{trim.method = "none"}). Replicate pairs contain no treatment
+effect, so trimming them would only remove genuine noise and
+under-estimate the variance.
+\item at least one cell has a single sample: within-cell pairs (if any)
+plus weighted between-group pairs with fixed-threshold trimming
+(\code{use_weighted_between = TRUE}, \code{trim.method = "dvalue"}),
+the non-replicate procedure of LPEseq1 (Gim et al. 2016).
+}
+This mirrors LPEseq1, which uses within-group replicate pairs without
+outlier removal whenever a group is replicated and the outlier-trimmed
+between-condition pairs only for non-replicated groups. A value given
+explicitly for either argument is always used as given.
+
+\strong{Multi-way designs.}
 For a multi-way design \code{~ A + B + ...} (no interaction terms
 allowed), each design term's main effect is tested by comparing, per
 gene, the full additive model against the model with that term dropped:
