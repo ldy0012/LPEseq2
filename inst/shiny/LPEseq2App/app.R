@@ -34,6 +34,18 @@ lpe_theme <- bslib::bs_theme(
 
 # Variance-evaluation choices. "Per-group (Welch)" is only valid for a
 # single group factor (one-way design), so the server swaps the choices
+# Input label with an (i) icon; the explanation is shown as a tooltip on hover
+# instead of a long help text under the input (keeps the top bar compact).
+label_info <- function(label, info) {
+  tags$span(
+    label, " ",
+    bslib::tooltip(
+      tags$span(shiny::icon("circle-info"), style = "color:#6c757d; cursor:help;"),
+      info, placement = "right"
+    )
+  )
+}
+
 # when more than one factor is selected.
 variance_eval_choices_all <- c(
   "Grand mean (default)" = "grand_mean",
@@ -366,15 +378,10 @@ ui <- fluidPage(
           2,
           selectInput(
             "variance_eval",
-            "Variance evaluation method",
+            label_info("Variance evaluation method",
+              "Per-group evaluates variance separately for each group's own mean expression level. Recommended when group means differ substantially in intensity. Only available with a single group factor. Ignored when Analysis method is standard ANOVA."),
             choices = variance_eval_choices_all,
             selected = "grand_mean"
-          ),
-          helpText(
-            "Per-group evaluates variance separately for each group's own mean ",
-            "expression level. Recommended when group means differ substantially ",
-            "in intensity. Only available with a single group factor. ",
-            "Ignored when Analysis method is standard ANOVA."
           ),
           checkboxInput(
             "log_transform",
@@ -415,15 +422,10 @@ ui <- fluidPage(
 
               numericInput(
                 "standard_min_group_n",
-                "Minimum group size for standard ANOVA in auto mode",
+                label_info("Minimum group size for standard ANOVA in auto mode",
+              "In auto mode, standard ANOVA is used when every group has at least this number of samples (with several group factors: every combination of factor levels). Otherwise, LPE-ANOVA is used."),
                 value = 5,
                 min = 2
-              ),
-
-              helpText(
-                "In auto mode, standard ANOVA is used when every group has at least this number of samples ",
-                "(with several group factors: every combination of factor levels). ",
-                "Otherwise, LPE-ANOVA is used."
               )
             )
           ),
@@ -479,7 +481,8 @@ ui <- fluidPage(
               3,
               selectInput(
                 "trim_method",
-                "Pairwise outlier trimming method",
+                label_info("Pairwise outlier trimming method",
+              "Auto: if every group (every combination of factor levels) has at least two samples, replicate pairs are used without trimming; otherwise the fixed D-value threshold is used. The IQR method pools within-group and between-group-derived pairwise values, divides them into expression-intensity A-bins, and applies the conventional 1.5 × IQR rule within each bin. Outlier detection is performed on the M-value scale used for variance trend estimation."),
                 choices = c(
                   "Auto by replication (recommended)" = "auto",
                   "Pooled bin-wise IQR" = "iqr",
@@ -487,17 +490,6 @@ ui <- fluidPage(
                   "None" = "none"
                 ),
                 selected = "auto"
-              ),
-
-              helpText(
-                "Auto: if every group (every combination of factor levels) has at least two samples, ",
-                "replicate pairs are used without trimming; otherwise the fixed D-value threshold is used. "
-              ),
-
-              helpText(
-                "The IQR method pools within-group and between-group-derived pairwise values, ",
-                "divides them into expression-intensity A-bins, and applies the conventional 1.5 within each bin. ",
-                "Outlier detection is performed on the M-value scale used for variance trend estimation."
               )
             ),
 
@@ -508,20 +500,11 @@ ui <- fluidPage(
 
                 numericInput(
                   "d_threshold",
-                  "D-value threshold",
+                  label_info("D-value threshold",
+              "Applies a fixed threshold on the M scale (the rescaled value actually used for variance estimation), converted from this D-value setting as threshold/sqrt(2), as in LPEseq1's non-replicate outlier procedure (Gim et al. 2016). Any pairwise value whose |M| exceeds the converted threshold is removed, regardless of expression-intensity bin or group size. Default 1.2 was empirically tuned on specific benchmark datasets; consider adjusting for your data."),
                   value = 1.2,
                   min = 0,
                   step = 0.1
-                ),
-
-                helpText(
-                  "Applies a fixed threshold on the M scale (the rescaled value actually ",
-                  "used for variance estimation), converted from this D-value setting as ",
-                  "threshold/sqrt(2), as in LPEseq1's non-replicate outlier procedure ",
-                  "(Gim et al. 2016). Any pairwise value whose |M| exceeds the converted ",
-                  "threshold is removed, regardless of expression-intensity bin or group ",
-                  "size. Default 1.2 was empirically tuned on specific benchmark datasets; ",
-                  "consider adjusting for your data."
                 )
               )
             ),
@@ -530,7 +513,8 @@ ui <- fluidPage(
               3,
               selectInput(
                 "use_weighted_between",
-                "Use weighted between-group differences",
+                label_info("Use weighted between-group differences",
+              "Auto: not used when every group has at least two samples (replicate pairs only); used when any group has a single sample. If used, between-group-derived values are also included in variance trend estimation. When IQR trimming is selected, within-group and between-group-derived values are pooled before bin-wise IQR trimming."),
                 choices = c(
                   "Auto by replication (recommended)" = "auto",
                   "Yes" = "TRUE",
@@ -539,12 +523,6 @@ ui <- fluidPage(
                 selected = "auto"
               ),
 
-              helpText(
-                "Auto: not used when every group has at least two samples (replicate pairs only); ",
-                "used when any group has a single sample. ",
-                "If used, between-group-derived values are also included in variance trend estimation. ",
-                "When IQR trimming is selected, within-group and between-group-derived values are pooled before bin-wise IQR trimming."
-              ),
 
               selectInput(
                 "p_method",
@@ -1107,13 +1085,19 @@ server <- function(input, output, session) {
   output$results_table <- renderDT({
     req(analysis_result())
 
-    datatable(
-      analysis_result(),
+    res <- analysis_result()
+    num_cols <- names(res)[vapply(res, is.numeric, logical(1))]
+    dt <- datatable(
+      res,
+      rownames = FALSE,
       options = list(
         scrollX = TRUE,
-        pageLength = 20
+        pageLength = 10
       )
     )
+    # show 4 significant digits (the downloaded CSV keeps full precision)
+    if (length(num_cols)) dt <- formatSignif(dt, columns = num_cols, digits = 4)
+    dt
   })
 
   output$method_info <- renderPrint({
@@ -1310,11 +1294,11 @@ server <- function(input, output, session) {
 
     plot(
       base_var$A, base_var$var.M,
-      pch  = 16, col = "#3B82F6AA", cex = 0.9,
-      xlab = "Mean Expression (A)",
-      ylab = "Estimated Local Pooled Variance",
-      main = paste0("Intensity-Dependent Variance Trend\n(method: ",
-                    if (!is.null(trend_info$method)) trend_info$method else "unknown", ")"),
+      pch  = 16, col = "#3B82F6AA", cex = 1.1,
+      xlab = "Mean expression (A)",
+      ylab = "Local pooled variance",
+      main = "Intensity-dependent variance trend",
+      cex.lab = 1.3, cex.axis = 1.15, cex.main = 1.35,
       las  = 1
     )
 
@@ -1325,11 +1309,7 @@ server <- function(input, output, session) {
       }
     }
 
-    legend("topright",
-           legend = c("Bin-level variance", "Fitted variance trend"),
-           col    = c("#3B82F6AA", "#EF4444"),
-           pch    = c(16, NA), lty = c(NA, 1), lwd = c(NA, 2.5),
-           bty    = "n")
+    # colours are explained in the help text under the plot (no in-plot legend)
   })
 
   # ###
