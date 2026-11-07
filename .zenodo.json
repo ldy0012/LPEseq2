@@ -1,0 +1,12 @@
+{
+  "title": "LPEseq2: local pooled error ANOVA for multi-factor and pseudo-bulk RNA-seq analyses with limited replication",
+  "upload_type": "software",
+  "description": "R package and Shiny web interface for differential expression analysis of RNA-seq data with few or no replicates per condition. LPEseq2 extends the local pooled error (LPE) test to one-way and additive multi-factor designs and to sample-level pseudo-bulk analysis of annotated single-cell data.",
+  "license": "MIT",
+  "creators": [
+    {"name": "Lim, Doye",    "affiliation": "Chosun University",                                   "orcid": "0009-0006-9614-3760"},
+    {"name": "Park, Jihwan", "affiliation": "Gwangju Institute of Science and Technology (GIST)", "orcid": "0000-0002-5728-912X"},
+    {"name": "Gim, Jungsoo", "affiliation": "Chosun University",                                   "orcid": "0000-0002-6454-9751"}
+  ],
+  "keywords": ["RNA-seq", "differential expression", "local pooled error", "ANOVA", "low replication", "pseudo-bulk", "single-cell", "R package"]
+}

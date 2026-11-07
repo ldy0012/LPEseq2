@@ -6,3 +6,4 @@
 ^pkgdown$
 ^\.github$
 ^inst/shiny/LPEseq2App/rsconnect$
+^\.zenodo\.json$
