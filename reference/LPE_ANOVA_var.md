@@ -33,7 +33,11 @@ LPE_ANOVA_var(
 
 - group:
 
-  A factor or vector indicating sample group labels.
+  A factor or vector indicating sample group labels. At least two groups
+  are needed, except that a single group with at least two samples is
+  accepted when `use_weighted_between = FALSE`; the trend is then fitted
+  from that group's replicate pairs alone (used by
+  `LPE_ANOVA(variance.trend = "per_group")`).
 
 - n.bin:
 
@@ -78,3 +82,28 @@ distribution's center at zero. Consequently, the pairwise counts
 reported in the returned `trim.info` (e.g. `n_total_before`,
 `n_within_before`, `n_between_before`, and their `_after`/`_removed`
 counterparts) are twice the number of underlying replicate/group pairs.
+
+## Examples
+
+``` r
+testdat <- system.file("testdat", package = "LPEseq2")
+counts <- as.matrix(read.csv(file.path(testdat, "LPEseq2_2group_test_counts.csv"),
+                             row.names = 1, check.names = FALSE))
+colData <- read.csv(file.path(testdat, "LPEseq2_2group_test_metadata.csv"),
+                    row.names = 1)
+prep <- LPE_preprocess(counts, colData, design = ~ group, verbose = FALSE)
+vt <- LPE_ANOVA_var(prep$expr, prep$group, trim.method = "none",
+                    use_weighted_between = FALSE)
+head(attr(vt, "base.var"))
+#>          A     var.M
+#> 1 2.690733 1.2122873
+#> 2 3.268862 0.7254224
+#> 3 3.544200 0.6392037
+#> 4 3.761727 0.6794754
+#> 5 3.919077 0.5380819
+#> 6 4.051039 0.5516262
+plot(attr(vt, "base.var"), xlab = "A (mean log2 expression)",
+     ylab = "Bin-level variance of M")
+lines(vt$object, col = "red")
+
+```

@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">LPEseq2</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -33,6 +33,17 @@
     </div>
 
     <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.1.1" id="lpeseq2-011">LPEseq2 0.1.1<a class="anchor" aria-label="anchor" href="#lpeseq2-011"></a></h2>
+<ul><li><p>The package now ships the results expected from the bundled test data (<code>inst/testdat/LPEseq2_2group_expected_results.csv</code>, <code>inst/testdat/LPEseq2_multiway_expected_results.csv</code>) and the script that regenerates them (<code>inst/testdat/make_expected_results.R</code>); a new test (<code>test-expected-results.R</code>) checks that the current code reproduces them.</p></li>
+<li><p><code><a href="../reference/LPE_preprocess.html">LPE_preprocess()</a></code>, <code><a href="../reference/LPE_ANOVA.html">LPE_ANOVA()</a></code> and <code><a href="../reference/LPE_ANOVA_var.html">LPE_ANOVA_var()</a></code> gained runnable examples based on the bundled test data.</p></li>
+<li><p><code><a href="../reference/LPE_pseudobulk.html">LPE_pseudobulk()</a></code>: removed redundant checks for the package itself and for <code><a href="../reference/make_pseudobulk_from_seurat.html">make_pseudobulk_from_seurat()</a></code>.</p></li>
+<li><p>DESCRIPTION: authors (with ORCID) and the package description updated.</p></li>
+<li><p>Shiny app: removed the commented-out volcano plot code.</p></li>
+<li><p><code><a href="../reference/LPE_ANOVA.html">LPE_ANOVA()</a></code>: new argument <code>variance.trend = c("pooled", "per_group")</code>, used with <code>variance.eval = "per_group"</code> (one-way designs). With <code>"per_group"</code>, every group with at least two samples reads its variance from its own trend, fitted to that group’s replicate pairs only (no trimming under <code>trim.method = "auto"</code>; an explicit <code>trim.method</code> is applied as given), as LPEseq1 and the original LPE method do for replicated conditions. Single-sample groups use the pooled trend, as LPEseq1 does for non-replicated conditions; a group whose trend cannot be fitted falls back to the pooled trend with a warning. The Welch-type test statistic is unchanged. The default <code>"pooled"</code> keeps all previous results identical (also for <code>variance.eval = "grand_mean"</code> and multi-way designs). Requesting <code>variance.trend = "per_group"</code> with <code>variance.eval = "grand_mean"</code> raises an error.</p></li>
+<li><p>The group-specific trends are returned in <code>attr(res, "var.spline.group")</code> and <code>attr(res, "base.var.group")</code>; <code>attr(res, "variance.settings")</code> gains <code>variance.trend</code> and <code>trend.source</code> (the trend used by each group).</p></li>
+<li><p><code><a href="../reference/LPE_ANOVA_var.html">LPE_ANOVA_var()</a></code>: accepts a single group with at least two samples when <code>use_weighted_between = FALSE</code> (needed for the group-specific trends).</p></li>
+</ul></div>
+    <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.1.0" id="lpeseq2-010">LPEseq2 0.1.0<a class="anchor" aria-label="anchor" href="#lpeseq2-010"></a></h2>
 <ul><li><p><code><a href="../reference/LPE_ANOVA.html">LPE_ANOVA()</a></code> / <code><a href="../reference/LPE_pseudobulk.html">LPE_pseudobulk()</a></code>: new default <code>trim.method = "auto"</code> and <code>use_weighted_between = "auto"</code>. The variance-training pairs are chosen from the replication of the design cells: when every cell has at least two samples, only within-cell replicate pairs are used, without trimming (<code>use_weighted_between = FALSE</code>, <code>trim.method = "none"</code>); when any cell has a single sample, weighted between-group pairs are added and D-value trimming is applied (<code>TRUE</code>, <code>"dvalue"</code>, the previous default). This follows LPEseq1, which uses replicate pairs without outlier removal for replicated groups. In simulations of cell-line-like data, trimming replicate pairs under-estimated the variance (mean FDR about 0.12 at a nominal 0.05 with two or three replicates), while replicate pairs without trimming kept the FDR closer to nominal (about 0.075) with a similar F1. <strong>Results with replicates in every group differ from version 0.0.1 when the defaults are used.</strong> To reproduce 0.0.1, set <code>trim.method = "dvalue", use_weighted_between = TRUE</code>. Explicitly supplied values are used unchanged.</p></li>
 <li><p>The settings actually used are returned in <code>attr(res, "variance.settings")</code> (<code>trim.method</code>, <code>use_weighted_between</code>, <code>auto</code>, <code>replicated</code>, <code>min_cell_n</code>, <code>rule</code>); <code><a href="../reference/LPE_pseudobulk.html">LPE_pseudobulk()</a></code> adds a <code>variance_training</code> column per cell type.</p></li>
@@ -55,7 +66,7 @@
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by Doye Lim.</p>
+  <p>Developed by Doye Lim, Jihwan Park, Jungsoo Gim.</p>
 </div>
 
 <div class="pkgdown-footer-right">

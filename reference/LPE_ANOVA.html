@@ -11,7 +11,7 @@ variance trend."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">LPEseq2</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -56,7 +56,8 @@ variance trend.</p>
 <span>  standard.min.group.n <span class="op">=</span> <span class="fl">5</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  p.method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"chisq"</span>, <span class="st">"F_inf"</span><span class="op">)</span>,</span>
-<span>  variance.eval <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"grand_mean"</span>, <span class="st">"per_group"</span><span class="op">)</span></span>
+<span>  variance.eval <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"grand_mean"</span>, <span class="st">"per_group"</span><span class="op">)</span>,</span>
+<span>  variance.trend <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"pooled"</span>, <span class="st">"per_group"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -142,6 +143,20 @@ statistic (returned with <code>method = "LPE_Welch"</code> and a different
 is only supported for one-way designs (a single design term); it raises
 an error for multi-way designs.</p></dd>
 
+
+<dt id="arg-variance-trend">variance.trend<a class="anchor" aria-label="anchor" href="#arg-variance-trend"></a></dt>
+<dd><p>Character string specifying which variance trend
+is read for each group when <code>variance.eval = "per_group"</code>. One of
+<code>"pooled"</code> (default) or <code>"per_group"</code>. <code>"pooled"</code> reads
+every group's variance from the single trend estimated from all design
+cells (behaviour of previous versions). <code>"per_group"</code> fits a
+separate variance trend for every group with at least two samples,
+using only that group's replicate pairs, as in LPEseq1 and the
+original LPE method; groups with a single sample read their variance
+from the pooled trend. Only used with <code>variance.eval = "per_group"</code>;
+requesting <code>"per_group"</code> together with
+<code>variance.eval = "grand_mean"</code> raises an error. See Details.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
@@ -161,7 +176,13 @@ the fitted variance trend object are stored in
 <code>attr(result, "trim.info")</code>, <code>attr(result, "trend.info")</code>,
 <code>attr(result, "base.var")</code>, and <code>attr(result, "var.spline")</code>.
 The variance-training settings actually used (after resolving
-<code>"auto"</code>) are stored in <code>attr(result, "variance.settings")</code>.</p>
+<code>"auto"</code>) are stored in <code>attr(result, "variance.settings")</code>.
+With <code>variance.trend = "per_group"</code>, the group-specific trends and
+their bin-level variance points are stored in
+<code>attr(result, "var.spline.group")</code> and
+<code>attr(result, "base.var.group")</code> (named by group; <code>NULL</code> for
+groups that used the pooled trend), and the trend used by each group is
+recorded in <code>attr(result, "variance.settings")$trend.source</code>.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -182,6 +203,31 @@ the non-replicate procedure of LPEseq1 (Gim et al. 2016).</p></li>
 outlier removal whenever a group is replicated and the outlier-trimmed
 between-condition pairs only for non-replicated groups. A value given
 explicitly for either argument is always used as given.</p>
+<p><strong>Group-specific variance trends.</strong> With
+<code>variance.eval = "per_group"</code> and <code>variance.trend = "per_group"</code>
+(one-way designs only), the variance of group \(i\) is read from a trend
+\(\sigma^2_i(A)\) fitted to the replicate pairs of that group alone,
+evaluated at the group mean:
+$$w_{gi} = n_i / \hat\sigma^2_i(\bar y_{gi}), \qquad
+      T_g = \sum_i w_{gi} (\bar y_{gi} - \bar y^w_g)^2 \sim \chi^2_{k-1}.$$
+This follows LPEseq1 (Gim et al. 2016) and the original LPE method
+(Jain et al. 2003), which estimate a baseline error curve for each
+replicated condition, and allows the noise level to differ between
+conditions at the same expression intensity. The rules are:</p><ul><li><p>a group with at least two samples uses its own trend, fitted with
+within-group pairs only. Trimming follows <code>trim.method</code> when it is
+given explicitly; with <code>trim.method = "auto"</code> no trimming is
+applied, because replicate pairs contain no treatment effect;</p></li>
+<li><p>a group with a single sample uses the pooled trend (estimated as
+for <code>variance.trend = "pooled"</code>, i.e. with weighted between-group
+pairs and D-value trimming under the automatic settings), as LPEseq1
+does for non-replicated conditions;</p></li>
+<li><p>if a group-specific trend cannot be fitted (too few valid
+pairwise values), that group falls back to the pooled trend with a
+warning.</p></li>
+</ul><p>When every group has a single sample, all groups use the pooled trend and
+the result equals <code>variance.trend = "pooled"</code>. The test statistic
+itself is unchanged; only the trend each group's variance is read from
+differs.</p>
 <p><strong>Multi-way designs.</strong>
 For a multi-way design <code>~ A + B + ...</code> (no interaction terms
 allowed), each design term's main effect is tested by comparing, per
@@ -196,12 +242,79 @@ reduces exactly to the original one-way LPE-ANOVA when the design has a
 single term.</p>
     </div>
 
+    <div class="section level2">
+    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="va">testdat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"testdat"</span>, package <span class="op">=</span> <span class="st">"LPEseq2"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">read_counts</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">f</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.csv</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">testdat</span>, <span class="va">f</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>                                              row.names <span class="op">=</span> <span class="fl">1</span>, check.names <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">read_meta</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">f</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.csv</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">testdat</span>, <span class="va">f</span><span class="op">)</span>, row.names <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co">## Two groups (6 vs 6), one-way design</span></span></span>
+<span class="r-in"><span><span class="va">prep2</span> <span class="op">&lt;-</span> <span class="fu"><a href="LPE_preprocess.html">LPE_preprocess</a></span><span class="op">(</span><span class="fu">read_counts</span><span class="op">(</span><span class="st">"LPEseq2_2group_test_counts.csv"</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>                        <span class="fu">read_meta</span><span class="op">(</span><span class="st">"LPEseq2_2group_test_metadata.csv"</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>                        design <span class="op">=</span> <span class="op">~</span> <span class="va">group</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">res2</span> <span class="op">&lt;-</span> <span class="fu">LPE_ANOVA</span><span class="op">(</span><span class="va">prep2</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">res2</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/order.html" class="external-link">order</a></span><span class="op">(</span><span class="va">res2</span><span class="op">$</span><span class="va">p.value</span><span class="op">)</span>, <span class="op">]</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>         gene     mean       var MS_between        F      p.value      q.value</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 12 gene_0012 7.073082 0.2899427   18.05682 62.27719 2.983604e-15 2.983604e-12</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 19 gene_0019 7.802183 0.2598390   13.35244 51.38738 7.582448e-13 3.791224e-10</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 38 gene_0038 7.117452 0.2878370   14.11076 49.02344 2.529213e-12 8.430709e-10</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 22 gene_0022 7.010981 0.2934340   13.66770 46.57846 8.802260e-12 2.200565e-09</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 11 gene_0011 7.820358 0.2589403   11.78999 45.53169 1.501890e-11 3.003780e-09</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 24 gene_0024 7.448984 0.2759103   10.95124 39.69129 2.974497e-10 4.957495e-08</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    method</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 12    LPE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 19    LPE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 38    LPE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 22    LPE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 11    LPE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 24    LPE</span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">res2</span><span class="op">$</span><span class="va">q.value</span> <span class="op">&lt;</span> <span class="fl">0.05</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 82</span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res2</span>, <span class="st">"variance.settings"</span><span class="op">)</span><span class="op">$</span><span class="va">rule</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "within-group (replicate) pairs only, no trimming (smallest cell n = 6)"</span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co">## Welch-type statistic with group-specific variance trends</span></span></span>
+<span class="r-in"><span><span class="va">res2_pg</span> <span class="op">&lt;-</span> <span class="fu">LPE_ANOVA</span><span class="op">(</span><span class="va">prep2</span>, variance.eval <span class="op">=</span> <span class="st">"per_group"</span>,</span></span>
+<span class="r-in"><span>                     variance.trend <span class="op">=</span> <span class="st">"per_group"</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res2_pg</span>, <span class="st">"variance.settings"</span><span class="op">)</span><span class="op">$</span><span class="va">trend.source</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     Control Treatment_A </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       "own"       "own" </span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co">## Three groups with a batch factor, additive design ~ group + batch</span></span></span>
+<span class="r-in"><span><span class="va">prep3</span> <span class="op">&lt;-</span> <span class="fu"><a href="LPE_preprocess.html">LPE_preprocess</a></span><span class="op">(</span><span class="fu">read_counts</span><span class="op">(</span><span class="st">"LPEseq2_test_counts.csv"</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>                        <span class="fu">read_meta</span><span class="op">(</span><span class="st">"LPEseq2_test_metadata.csv"</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>                        design <span class="op">=</span> <span class="op">~</span> <span class="va">group</span> <span class="op">+</span> <span class="va">batch</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">res3</span> <span class="op">&lt;-</span> <span class="fu">LPE_ANOVA</span><span class="op">(</span><span class="va">prep3</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">res3</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/order.html" class="external-link">order</a></span><span class="op">(</span><span class="va">res3</span><span class="op">$</span><span class="va">p.value_group</span><span class="op">)</span>, <span class="op">]</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>         gene     mean       var MS_between_group  F_group p.value_group</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 11 gene_0011 7.383532 0.2868123         9.580432 33.40314  3.113159e-15</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 12 gene_0012 6.888715 0.3068180         9.391096 30.60804  5.094461e-14</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 38 gene_0038 6.802491 0.3119396         8.997715 28.84442  2.971858e-13</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 19 gene_0019 7.543674 0.2804833         7.886401 28.11719  6.149783e-13</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 22 gene_0022 6.711890 0.3181820         8.593651 27.00860  1.863438e-12</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 25 gene_0025 8.482922 0.2395040         6.363551 26.56971  2.890156e-12</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    q.value_group MS_between_batch    F_batch p.value_batch q.value_batch method</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 11  3.113159e-12       0.21966581 0.76588690    0.38149249     0.9983678    LPE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 12  2.547231e-11       0.02524831 0.08229086    0.77421659     0.9983678    LPE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 38  9.906192e-11       0.07251272 0.23245758    0.62970753     0.9983678    LPE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 19  1.537446e-10       0.10840430 0.38649114    0.53414960     0.9983678    LPE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 22  3.726877e-10       0.07196450 0.22617398    0.63437539     0.9983678    LPE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 25  4.816926e-10       0.75357457 3.14639711    0.07609481     0.7939179    LPE</span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co">## Expected results shipped with the package</span></span></span>
+<span class="r-in"><span><span class="va">expected</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.csv</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">testdat</span>, <span class="st">"LPEseq2_2group_expected_results.csv"</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/all.equal.html" class="external-link">all.equal</a></span><span class="op">(</span><span class="va">res2</span><span class="op">$</span><span class="va">p.value</span>, <span class="va">expected</span><span class="op">$</span><span class="va">p.value</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] TRUE</span>
+<span class="r-in"><span></span></span>
+</code></pre></div>
+    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by Doye Lim.</p>
+  <p>Developed by Doye Lim, Jihwan Park, Jungsoo Gim.</p>
 </div>
 
 <div class="pkgdown-footer-right">

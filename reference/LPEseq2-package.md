@@ -16,12 +16,15 @@ Useful links:
 
 ## Author
 
-**Maintainer**: Doye Lim <doye730@gmail.com> (affiliation: gimLAB)
+**Maintainer**: Doye Lim <doye730@gmail.com>
+([ORCID](https://orcid.org/0009-0006-9614-3760))
 
 Authors:
 
-- Doye Lim <doye730@gmail.com> (affiliation: gimLAB)
+- Doye Lim <doye730@gmail.com>
+  ([ORCID](https://orcid.org/0009-0006-9614-3760))
 
-Other contributors:
+- Jihwan Park ([ORCID](https://orcid.org/0000-0002-5728-912X))
 
-- FirstName LastName \[contributor\]
+- Jungsoo Gim <jgim@chosun.ac.kr>
+  ([ORCID](https://orcid.org/0000-0002-6454-9751))

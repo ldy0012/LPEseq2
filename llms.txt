@@ -4,11 +4,12 @@ LPEseq2 is an R package for differential expression analysis of RNA-seq
 count data using local pooled error-based ANOVA and conventional ANOVA,
 supporting both one-way and multi-way (interaction-free) designs.
 
-Many RNA-seq studies — including pilot experiments, rare clinical sample
-studies, and reanalyses of public datasets — are limited to one or two
-biological replicates per condition. This constraint is especially
-common in single-cell RNA-seq (scRNA-seq), where the high per-sample
-cost of library preparation and sequencing often restricts the number of
+RNA-seq experiments in controlled model systems — cell lines, organoids
+and animal models, as well as pilot experiments — are often limited to
+one or two replicates per condition because repeated assays are costly
+or material is scarce. This constraint is especially common in
+single-cell RNA-seq (scRNA-seq), where the high per-sample cost of
+library preparation and sequencing often restricts the number of
 biological donors to one or two per condition, even when large numbers
 of cells are profiled. Under these low-replicate conditions,
 conventional differential expression methods such as DESeq2 and edgeR
@@ -18,12 +19,16 @@ dispersion estimation becomes unstable.
 LPEseq2 addresses this by borrowing variance information across genes
 with similar expression intensities rather than estimating it per gene
 independently, making it applicable even when only one replicate per
-group is available. LPEseq2 supports LPE-ANOVA for small-sample RNA-seq
-data, standard gene-wise ANOVA for larger sample sizes, and an automatic
-mode that selects the analysis method based on group sample size. The
-design can be one-way (`~ group`) or multi-way with multiple main-effect
-factors and no interaction terms (`~ genotype + treatment`); see
-[Multi-way (no-interaction) designs](#multi-way-no-interaction-designs).
+group is available. Because the variance is modelled as a function of
+expression intensity, LPEseq2 is best suited to controlled experiments;
+it is less suited to heterogeneous samples, such as human tissue
+cohorts, in which inter-individual variability is the main question.
+LPEseq2 supports LPE-ANOVA for small-sample RNA-seq data, standard
+gene-wise ANOVA for larger sample sizes, and an automatic mode that
+selects the analysis method based on group sample size. The design can
+be one-way (`~ group`) or multi-way with multiple main-effect factors
+and no interaction terms (`~ genotype + treatment`); see [Multi-way
+(no-interaction) designs](#multi-way-no-interaction-designs).
 
 LPEseq2 also provides a Seurat-integrated pseudo-bulk workflow for
 cell-type-resolved differential expression analysis of annotated
@@ -90,7 +95,7 @@ be used without Seurat.
 |----|----|
 | [`LPE_preprocess()`](https://ldy0012.github.io/LPEseq2/reference/LPE_preprocess.md) | Checks count matrix and sample metadata, filters low-count genes, and performs normalization |
 | [`LPE_ANOVA()`](https://ldy0012.github.io/LPEseq2/reference/LPE_ANOVA.md) | Performs LPE-ANOVA, standard ANOVA, or automatic method selection for one-way or multi-way (interaction-free) differential expression analysis |
-| [`LPE_ANOVA_var()`](https://ldy0012.github.io/LPEseq2/reference/LPE_ANOVA_var.md) | Estimates an intensity-dependent variance trend and stores trimming information |
+| [`LPE_ANOVA_var()`](https://ldy0012.github.io/LPEseq2/reference/LPE_ANOVA_var.md) | Low-level function that estimates the intensity-dependent variance trend and stores trimming information. It is called internally by [`LPE_ANOVA()`](https://ldy0012.github.io/LPEseq2/reference/LPE_ANOVA.md); when called directly, its defaults are `trim.method = "dvalue"` and `use_weighted_between = TRUE` (no `"auto"` rule) |
 | [`make_pseudobulk_from_seurat()`](https://ldy0012.github.io/LPEseq2/reference/make_pseudobulk_from_seurat.md) | Generates pseudo-bulk raw count matrices from an annotated Seurat object |
 | [`LPE_pseudobulk()`](https://ldy0012.github.io/LPEseq2/reference/LPE_pseudobulk.md) | Runs LPEseq2 on cell-type-specific pseudo-bulk count matrices generated from a Seurat object |
 
@@ -100,24 +105,22 @@ be used without Seurat.
 
 ### Bulk RNA-seq count matrix input
 
-Supported file formats: CSV, TSV, and other delimiter-separated text
-files such as `.txt`. The separator is detected automatically.
-
-The count matrix should contain genes as rows and samples as columns.
-The first column must contain gene identifiers.
+In R,
+[`LPE_preprocess()`](https://ldy0012.github.io/LPEseq2/reference/LPE_preprocess.md)
+takes a **numeric matrix** of raw counts (genes as rows, samples as
+columns, gene identifiers as row names) and a **data.frame** of sample
+metadata (samples as row names, variables as columns). Counts must be
+non-negative and free of `NA`/`Inf`.
 
 ``` r
-# Example count matrix
+# Example count matrix (a numeric matrix with gene row names)
 #        sample1 sample2 sample3 sample4
 # gene1      100     120      80      95
 # gene2       50      60      55      70
 ```
 
-The sample metadata should contain samples as rows and variables as
-columns.
-
 ``` r
-# Example colData
+# Example colData (a data.frame with sample row names)
 #          group
 # sample1 Control
 # sample2 Control
@@ -125,8 +128,24 @@ columns.
 # sample4 Treatment
 ```
 
-The column names of the count matrix must match the row names of
-`colData`.
+The column names of the count matrix and the row names of `colData` must
+contain the same sample names (the order may differ; `colData` is
+reordered to match the count matrix).
+
+A count table stored as a text file can be read into this format, for
+example:
+
+``` r
+counts  <- as.matrix(read.csv("counts.csv", row.names = 1, check.names = FALSE))
+colData <- read.csv("colData.csv", row.names = 1)
+```
+
+The Shiny web tool accepts CSV, TSV, and other delimiter-separated text
+files (such as `.txt`) directly; there, the first column must contain
+gene identifiers, and the separator is detected automatically.
+
+Low-count genes are removed before normalization: a gene is kept if it
+has at least `min.count` counts (default 5) in at least two samples.
 
 ------------------------------------------------------------------------
 
@@ -150,6 +169,16 @@ The metadata column names can be customized using the `sample_col`,
 Pseudo-bulk count matrices are generated by summing raw counts across
 cells within each sample and cell type. **Normalized or log-normalized
 expression values should not be used for pseudo-bulk aggregation.**
+Pseudo-bulk samples built from fewer than `min_cells` cells (default 10)
+are removed.
+
+In
+[`LPE_pseudobulk()`](https://ldy0012.github.io/LPEseq2/reference/LPE_pseudobulk.md),
+each cell type is analysed with a one-way design on the condition column
+(`~ condition`); multi-way designs and `variance.eval` are available
+through
+[`LPE_preprocess()`](https://ldy0012.github.io/LPEseq2/reference/LPE_preprocess.md) +
+[`LPE_ANOVA()`](https://ldy0012.github.io/LPEseq2/reference/LPE_ANOVA.md).
 
 Two aggregation modes are supported:
 
@@ -182,7 +211,9 @@ counts differ markedly across samples.
 
 - `normalize_by_ncells = TRUE` produces non-integer values. Therefore,
   **TMM and DESeq2 normalization are automatically disabled** because
-  they require raw integer counts.
+  they require raw integer counts: if `normalize.method` is `"TMM"` (the
+  [`LPE_pseudobulk()`](https://ldy0012.github.io/LPEseq2/reference/LPE_pseudobulk.md)
+  default) or `"DESeq2"`, it is set to `"none"` with a warning.
 - `library_size` normalization **remains available** and can be combined
   with `normalize_by_ncells = TRUE` to additionally correct for
   sequencing depth differences after cell-number scaling:
@@ -196,13 +227,16 @@ res_pb <- LPE_pseudobulk(
   ncells_scale = 1000,
   normalize.method = "library_size",   # additionally correct for sequencing depth
   min.count = 1,
-  ...
+  sample_col = "sample_id",
+  condition_col = "condition",
+  celltype_col = "celltype"
 )
 ```
 
 - When `normalize_by_ncells = TRUE` and `normalize.method = "none"`
-  (default when TMM/DESeq2 is specified), only cell-number imbalance is
-  corrected. Sequencing depth differences remain uncorrected.
+  (explicitly, or after TMM/DESeq2 has been switched off as above), only
+  cell-number imbalance is corrected. Sequencing depth differences
+  remain uncorrected.
 - The `min.count` threshold should be adjusted to match the scaled count
   values (for example, `min.count = 1` instead of the default `5`).
 
@@ -217,17 +251,18 @@ library(LPEseq2)
 
 set.seed(123)
 
+# 1,000 genes x 6 samples (3 Control, 3 Treatment)
 counts <- matrix(
-  rnbinom(1000, mu = 50, size = 10),
-  nrow = 100,
-  ncol = 10
+  rnbinom(6000, mu = 50, size = 10),
+  nrow = 1000,
+  ncol = 6
 )
 
-rownames(counts) <- paste0("gene", 1:100)
-colnames(counts) <- paste0("sample", 1:10)
+rownames(counts) <- paste0("gene", 1:1000)
+colnames(counts) <- paste0("sample", 1:6)
 
 colData <- data.frame(
-  group = rep(c("Control", "Treatment"), each = 5),
+  group = rep(c("Control", "Treatment"), each = 3),
   row.names = colnames(counts)
 )
 
@@ -235,26 +270,74 @@ prep <- LPE_preprocess(
   counts = counts,
   colData = colData,
   design = ~ group,
-  normalize.method = "library_size",
+  normalize.method = "library_size",   # default
   verbose = FALSE
 )
 
-res <- LPE_ANOVA(
-  object = prep,
-  analysis.method = "auto",
-  standard.min.group.n = 5,
-  n.bin = 100,
-  df = 10,
-  use_weighted_between = FALSE,
-  p.method = "chisq",
-  verbose = FALSE
-)
+# Default settings: analysis.method = "LPE",
+# trim.method = "auto", use_weighted_between = "auto",
+# n.bin = 100, df = 10, p.method = "chisq"
+res <- LPE_ANOVA(object = prep, verbose = FALSE)
 
 head(res)
-attr(res, "analysis.method")
+attr(res, "analysis.method")            # "LPE"
+attr(res, "variance.settings")$rule
+#> "within-group (replicate) pairs only, no trimming (smallest cell n = 3)"
 ```
 
+Because every group has at least two samples, the automatic rule trains
+the variance trend on within-group replicate pairs only, without
+trimming (see [Automatic variance-training
+settings](#automatic-variance-training-settings)).
+
 ------------------------------------------------------------------------
+
+### Example with the bundled test data
+
+The package ships simulated test data and the results expected from the
+current version in `inst/testdat/`:
+
+| File | Content |
+|----|----|
+| `LPEseq2_2group_test_counts.csv`, `LPEseq2_2group_test_metadata.csv` | 1,000 genes; 6 Control vs 6 Treatment_A |
+| `LPEseq2_test_counts.csv`, `LPEseq2_test_metadata.csv` | 1,000 genes; Control, Treatment_A, Treatment_B (6 each) over two batches |
+| `LPEseq2_2group_expected_results.csv`, `LPEseq2_multiway_expected_results.csv` | Expected [`LPE_ANOVA()`](https://ldy0012.github.io/LPEseq2/reference/LPE_ANOVA.md) output with default settings |
+| `make_expected_results.R` | Script that regenerates the expected results |
+
+``` r
+library(LPEseq2)
+
+testdat <- system.file("testdat", package = "LPEseq2")
+read_counts <- function(f) as.matrix(read.csv(file.path(testdat, f),
+                                              row.names = 1, check.names = FALSE))
+read_meta <- function(f) read.csv(file.path(testdat, f), row.names = 1)
+
+# Two groups, ~ group
+prep2 <- LPE_preprocess(read_counts("LPEseq2_2group_test_counts.csv"),
+                        read_meta("LPEseq2_2group_test_metadata.csv"),
+                        design = ~ group, verbose = FALSE)
+res2 <- LPE_ANOVA(prep2, verbose = FALSE)
+sum(res2$q.value < 0.05)
+#> 82
+
+# Three groups with a batch factor, ~ group + batch
+prep3 <- LPE_preprocess(read_counts("LPEseq2_test_counts.csv"),
+                        read_meta("LPEseq2_test_metadata.csv"),
+                        design = ~ group + batch, verbose = FALSE)
+res3 <- LPE_ANOVA(prep3, verbose = FALSE)
+sum(res3$q.value_group < 0.05)
+#> 133
+sum(res3$q.value_batch < 0.05)
+#> 3
+
+# Compare with the shipped expected results
+expected <- read.csv(file.path(testdat, "LPEseq2_2group_expected_results.csv"))
+all.equal(res2$p.value, expected$p.value)
+#> TRUE
+```
+
+The same comparison is run automatically by the package tests
+(`tests/testthat/test-expected-results.R`).
 
 ### Pseudo-bulk analysis from an annotated Seurat object
 
@@ -264,7 +347,9 @@ sample-by-cell-type level and run LPEseq2 separately for each cell type.
 ``` r
 library(LPEseq2)
 
-# Standard pseudo-bulk (raw integer counts, library_size normalization)
+# Standard pseudo-bulk (raw integer counts)
+# Defaults shown: normalize.method = "TMM" (requires edgeR),
+# analysis.method = "auto", trim.method = "auto", use_weighted_between = "auto"
 res_pb <- LPE_pseudobulk(
   seurat_obj = seurat_obj,
   method = "sample",
@@ -274,16 +359,19 @@ res_pb <- LPE_pseudobulk(
   condition_col = "condition",
   celltype_col = "celltype",
   min_cells = 10,
-  normalize.method = "library_size",
+  normalize.method = "TMM",
   analysis.method = "auto",
   standard.min.group.n = 5,
-  n.bin = 100,
-  df = 10,
-  trim.method = "iqr",
   p.method = "chisq",
   verbose = TRUE
 )
 ```
+
+With `analysis.method = "auto"`, standard ANOVA is used for a cell type
+when every condition has at least `standard.min.group.n` pseudo-bulk
+samples; otherwise LPE-ANOVA is used. The method and the
+variance-training rule chosen for each cell type are reported in the
+`selected_LPEseq2_method` and `variance_training` columns of the result.
 
 When cell numbers are substantially unequal across samples within a cell
 type, use `normalize_by_ncells = TRUE` to scale each sample’s counts to
@@ -306,9 +394,6 @@ res_pb_norm <- LPE_pseudobulk(
   min.count = 1,                     # adjust threshold for scaled count values
   analysis.method = "auto",
   standard.min.group.n = 5,
-  n.bin = 100,
-  df = 10,
-  trim.method = "iqr",
   p.method = "chisq",
   verbose = TRUE
 )
@@ -415,20 +500,22 @@ cd4_meta   <- pb$metadata_by_celltype$CD4_T
 ### Advanced example with IQR-based trimming
 
 The `iqr` trimming method applies the conventional 1.5 × IQR boxplot
-rule within expression-intensity A-bins. Within-group and
-between-group-derived pairwise values are pooled before trimming, and
-outliers are detected on the M-value scale used for variance trend
-estimation.
+rule within expression-intensity A-bins. When
+`use_weighted_between = TRUE`, within-group and between-group-derived
+pairwise values are pooled before trimming; outliers are detected on the
+M-value scale used for variance trend estimation.
+
+Explicitly supplied values override the automatic rule. In the example
+below (three samples per group), the automatic rule would use replicate
+pairs without trimming; setting both arguments forces between-group
+pairs and IQR trimming.
 
 ``` r
 res_iqr <- LPE_ANOVA(
   object = prep,
   analysis.method = "LPE",
-  n.bin = 100,
-  df = 10,
-  trim.method = "iqr",
-  use_weighted_between = TRUE,
-  p.method = "chisq",
+  trim.method = "iqr",           # overrides "auto"
+  use_weighted_between = TRUE,   # overrides "auto"
   verbose = FALSE
 )
 
@@ -437,6 +524,8 @@ attr(res_iqr, "trim.info")
 attr(res_iqr, "trend.info")
 attr(res_iqr, "base.var")
 attr(res_iqr, "var.spline")
+attr(res_iqr, "variance.settings")$rule
+#> "within- and weighted between-group pairs, IQR trimming (smallest cell n = 3)"
 ```
 
 ------------------------------------------------------------------------
@@ -452,26 +541,36 @@ argument:
 | `standard_anova` | Uses conventional gene-wise ANOVA (Type II sums of squares for multi-way designs) based on within-group residual variance. More appropriate when each group/cell has enough samples for stable per-gene variance estimation. |
 | `auto` | Automatically selects the analysis method based on the minimum group (or, for multi-way designs, factor-level combination) sample size. Uses standard ANOVA when all groups/cells meet `standard.min.group.n`; otherwise uses LPE-ANOVA. |
 
+The default is `analysis.method = "LPE"` in
+[`LPE_ANOVA()`](https://ldy0012.github.io/LPEseq2/reference/LPE_ANOVA.md)
+and `analysis.method = "auto"` in
+[`LPE_pseudobulk()`](https://ldy0012.github.io/LPEseq2/reference/LPE_pseudobulk.md).
+
+P-values are computed from `df × F ~ χ²(df)` by default
+(`p.method = "chisq"`); `p.method = "F_inf"` uses an F distribution with
+a very large denominator degrees of freedom (`df2 = 1e6`). Both apply to
+LPE-ANOVA; standard ANOVA uses the usual F distribution with the
+residual degrees of freedom.
+
 ### LPE-ANOVA mode
 
 ``` r
 res_lpe <- LPE_ANOVA(
   object = prep,
-  analysis.method = "LPE",
-  n.bin = 100,
-  df = 10,
-  use_weighted_between = FALSE,
-  p.method = "chisq",
+  analysis.method = "LPE",   # default
+  n.bin = 100,               # number of expression-intensity A-bins (default)
+  df = 10,                   # smoothing-spline degrees of freedom (default)
+  p.method = "chisq",        # default
   verbose = FALSE
 )
 ```
 
 The `use_weighted_between` argument controls whether
 between-group-derived pairwise values are incorporated into variance
-trend estimation when within-group pairs are sparse. When `TRUE`, these
-values are included (and should be trimmed) to reduce contamination from
-true biological group differences. This option is needed for
-non-replicated data where within-group pairs are unavailable.
+trend estimation. When `TRUE`, these values are included and should be
+trimmed to reduce contamination from true biological group differences.
+They are required for non-replicated data, where within-group pairs are
+unavailable for at least one group.
 
 The `trim.method` argument controls outlier trimming for pairwise values
 used in variance trend estimation (`"auto"`, `"dvalue"`, `"iqr"`, or
@@ -501,14 +600,11 @@ res_auto <- LPE_ANOVA(
   object = prep,
   analysis.method = "auto",
   standard.min.group.n = 5,
-  n.bin = 100,
-  df = 10,
-  use_weighted_between = FALSE,
-  p.method = "chisq",
   verbose = FALSE
 )
 
-attr(res_auto, "analysis.method")
+attr(res_auto, "analysis.method")            # "LPE" (3 samples per group < 5)
+attr(res_auto, "requested.analysis.method")  # "auto"
 ```
 
 The default threshold is `standard.min.group.n = 5`. This is a practical
@@ -527,6 +623,16 @@ since the LPE variance-trend / test-statistic machinery assumes an
 additive model.
 
 ``` r
+set.seed(1)
+
+# 1,000 genes x 8 samples: 2 genotypes x 2 treatments, 2 samples per combination
+counts_mw <- matrix(
+  rnbinom(8000, mu = 50, size = 10),
+  nrow = 1000,
+  ncol = 8,
+  dimnames = list(paste0("gene", 1:1000), paste0("s", 1:8))
+)
+
 colData_mw <- data.frame(
   genotype  = rep(rep(c("wt", "mut"), each = 2), times = 2),
   treatment = rep(c("control", "drug"), each = 4),
@@ -549,6 +655,8 @@ res_mw <- LPE_ANOVA(
 )
 
 head(res_mw)
+attr(res_mw, "analysis.method")   # "LPE" (2 samples per combination < 5)
+attr(res_mw, "design.terms")      # "genotype" "treatment"
 ```
 
 Each design term’s main effect is tested with a Type II sum-of-squares
@@ -562,6 +670,9 @@ the term name, e.g.:
     gene, mean, var, MS_between_genotype, F_genotype, p.value_genotype, q.value_genotype,
     MS_between_treatment, F_treatment, p.value_treatment, q.value_treatment, method
 
+With `analysis.method = "standard_anova"`, `MS_within` and `df2` are
+reported once and `df1_<term>` is added for each term.
+
 `variance.eval = "per_group"` (Welch-style, per-group variance
 evaluation) is only supported for one-way designs; it raises an error
 for multi-way designs; use `variance.eval = "grand_mean"` (the default)
@@ -570,9 +681,8 @@ were tested.
 
 Column names that are not syntactically valid R names (for example
 `time point`, containing a space) can be used in `design` if they are
-backquoted, e.g. `~ genotype +`time
-point\``; the output columns are then named`F_time point`,`q.value_time
-point\`, and so on.
+backquoted, e.g. `` ~ genotype + `time point` ``; the output columns are
+then named `F_time point`, `q.value_time point`, and so on.
 
 #### Multi-way analysis in the Shiny web tool
 
@@ -599,12 +709,16 @@ recommended because it preserves biological replicates. For example, if
 there are three control samples and three case samples, CD4_T
 pseudo-bulk analysis will use:
 
-    control1_CD4_T
-    control2_CD4_T
-    control3_CD4_T
-    case1_CD4_T
-    case2_CD4_T
-    case3_CD4_T
+    control1__control__CD4_T
+    control2__control__CD4_T
+    control3__control__CD4_T
+    case1__case__CD4_T
+    case2__case__CD4_T
+    case3__case__CD4_T
+
+(Pseudo-sample names are `sample__condition__celltype`, joined with
+`id_sep = "__"` in
+[`make_pseudobulk_from_seurat()`](https://ldy0012.github.io/LPEseq2/reference/make_pseudobulk_from_seurat.md).)
 
 This structure allows LPEseq2 to model group-level differences while
 retaining sample-level variability.
@@ -612,13 +726,14 @@ retaining sample-level variability.
 In contrast, `method = "condition"` pools all cells within each
 condition and cell type:
 
-    control_CD4_T
-    case_CD4_T
+    control__CD4_T
+    case__CD4_T
 
 This usually results in one pseudo-bulk sample per condition and cell
-type. It can be useful for exploratory pooled comparisons, but p-values
-and adjusted p-values should be interpreted cautiously because
-biological replicate information is not preserved.
+type, so the automatic rule uses weighted between-group pairs with
+D-value trimming. It can be useful for exploratory pooled comparisons,
+but p-values and adjusted p-values should be interpreted cautiously
+because biological replicate information is not preserved.
 
 #### Cell number imbalance
 
@@ -636,8 +751,10 @@ to check the distribution of cell counts across samples:
 table(seurat_obj$sample_id, seurat_obj$celltype)
 ```
 
-If cell counts differ by more than approximately 2-fold across samples
-for a given cell type, `normalize_by_ncells = TRUE` is recommended.
+As a rule of thumb, `normalize_by_ncells = TRUE` can be considered when
+cell counts differ by more than approximately 2-fold across samples for
+a given cell type. This threshold is a practical guideline, not a value
+enforced by the package.
 
 ------------------------------------------------------------------------
 
@@ -691,13 +808,22 @@ stored in `attr(res, "variance.settings")` (and in the
 results).
 
 ``` r
-res <- LPE_ANOVA(obj)                       # auto
+res <- LPE_ANOVA(prep, verbose = FALSE)     # auto (prep from the basic example)
 attr(res, "variance.settings")$rule
 #> "within-group (replicate) pairs only, no trimming (smallest cell n = 3)"
 
-res_old <- LPE_ANOVA(obj, trim.method = "dvalue",
-                     use_weighted_between = TRUE)   # behaviour of LPEseq2 <= 0.0.1
+res_old <- LPE_ANOVA(prep, trim.method = "dvalue",
+                     use_weighted_between = TRUE,
+                     verbose = FALSE)               # defaults of LPEseq2 0.0.1
+attr(res_old, "variance.settings")$rule
+#> "within- and weighted between-group pairs, dvalue trimming (smallest cell n = 3)"
 ```
+
+`attr(res, "variance.settings")` also contains `trim.method`,
+`use_weighted_between`, `auto` (whether the automatic rule was applied),
+`replicated`, `min_cell_n`, `variance.trend` (`"pooled"` or
+`"per_group"`), and, with `variance.eval = "per_group"`, `trend.source`
+(the trend used by each group).
 
 ------------------------------------------------------------------------
 
@@ -711,13 +837,14 @@ settings](#automatic-variance-training-settings).
 
 | Method | Description |
 |----|----|
-| `iqr` | Applies the conventional 1.5 × IQR boxplot rule within expression-intensity A-bins after pooling within-group and between-group-derived pairwise values |
+| `iqr` | Applies the conventional 1.5 × IQR boxplot rule within expression-intensity A-bins to the pairwise values used for training (within-group values, pooled with between-group-derived values when `use_weighted_between = TRUE`) |
 | `dvalue` | Applies a single fixed threshold to the M value (the rescaled pairwise difference actually used for variance estimation), derived from `d.threshold` (default 1.2) as `d.threshold / sqrt(2)`, following LPEseq1’s non-replicate outlier procedure (Gim et al. 2016). Unlike `iqr`, this threshold is global, does not adapt per bin, and is applied on the same rescaled M scale regardless of group size. |
 | `none` | Uses pairwise values without outlier trimming |
 
-When `trim.method = "iqr"`, LPEseq2 first pools within-group pairwise
-values and between-group-derived values. The pooled values are divided
-into expression-intensity A-bins, and the conventional boxplot rule is
+When `trim.method = "iqr"`, LPEseq2 first collects the training values
+(within-group pairwise values, plus between-group-derived values when
+`use_weighted_between = TRUE`). These values are divided into
+expression-intensity A-bins, and the conventional boxplot rule is
 applied within each bin:
 
     lower_bound = Q1 - 1.5 * IQR
@@ -755,12 +882,12 @@ shared across methods.
 |----|----|
 | `gene` | Gene identifier from the row names of the input expression matrix |
 | `mean` | Mean expression value of the gene across samples |
-| `var` | Estimated variance used in the test. For LPE-ANOVA, this is the intensity-dependent pooled variance σ²(A) predicted from the spline. For standard ANOVA, this is the within-group residual variance. |
+| `var` | Estimated variance used in the test. For LPE-ANOVA, this is the intensity-dependent pooled variance σ²(A) predicted from the spline at the gene’s mean expression. With `variance.eval = "per_group"`, it is the variance of the weighted mean, 1 / Σ wᵢ (wᵢ = nᵢ / σ²(ȳᵢ)). For standard ANOVA, this is the within-group residual variance (`MS_within`). |
 | `MS_between` | Between-group mean square (numerator of the test statistic). For multi-way designs this column and the next four are reported once per design term as `MS_between_<term>`, `F_<term>`, `p.value_<term>`, `q.value_<term>` (`df1_<term>` as well for standard ANOVA). |
 | `F` | Test statistic |
 | `p.value` | Raw p-value |
 | `q.value` | Benjamini-Hochberg adjusted p-value. Treat as an approximate ranking measure, not a calibrated FDR guarantee. |
-| `method` | Analysis method used for the gene |
+| `method` | Analysis method used: `"LPE"`, `"LPE_Welch"` (`variance.eval = "per_group"`), or `"standard_anova"` |
 
 #### Variance evaluation method
 
@@ -770,7 +897,27 @@ evaluated:
 | Value | Description |
 |----|----|
 | `"grand_mean"` (default) | Variance is evaluated once at the grand mean expression level, shared across all groups. Matches classical equal-variance ANOVA. |
-| `"per_group"` | Variance is evaluated separately at each group’s own mean expression level (Welch-style weighted ANOVA). Mathematically equivalent to LPEseq1’s z-test when k=2. Recommended when group means differ substantially in expression intensity. |
+| `"per_group"` | Variance is evaluated separately at each group’s own mean expression level (Welch-style weighted ANOVA, one-way designs only; `method = "LPE_Welch"`). For two groups the statistic has the same form as LPEseq1’s z-statistic (T = z²), but the variance trend is estimated differently from LPEseq1, so results are not identical. Can be considered when group means differ substantially in expression intensity. |
+
+#### Variance trend used with `variance.eval = "per_group"`
+
+`variance.trend` chooses which trend each group’s variance is read from
+(one-way designs, `variance.eval = "per_group"` only):
+
+| Value | Description |
+|----|----|
+| `"pooled"` (default) | Every group reads its variance from the single trend estimated from all design cells. Results are identical to previous versions. |
+| `"per_group"` | Every group with at least two samples reads its variance from its own trend, fitted to that group’s replicate pairs only, as in LPEseq1 and the original LPE method. Single-sample groups use the pooled trend. Useful when the noise level may differ between conditions. |
+
+``` r
+res_pg <- LPE_ANOVA(prep, variance.eval = "per_group",
+                    variance.trend = "per_group", verbose = FALSE)
+attr(res_pg, "variance.settings")$trend.source   # trend used by each group
+attr(res_pg, "var.spline.group")                 # group-specific trends
+```
+
+Requesting `variance.trend = "per_group"` with
+`variance.eval = "grand_mean"` raises an error.
 
 #### Additional columns for standard ANOVA
 
@@ -789,6 +936,10 @@ include:
 attr(res, "analysis.method")           # method actually used
 attr(res, "requested.analysis.method") # method originally requested
 attr(res, "standard.min.group.n")      # threshold used for auto mode
+attr(res, "design.terms")              # design terms tested
+attr(res, "variance.settings")         # variance-training settings used (LPE-ANOVA only)
+attr(res, "var.spline.group")          # group-specific trends (variance.trend = "per_group" only)
+attr(res, "base.var.group")            # their bin-level variance points
 ```
 
 #### Variance trend object
@@ -810,10 +961,15 @@ When `analysis.method = "standard_anova"` is selected,
 #### Trimming information
 
 ``` r
-attr(res, "trim.info")
+attr(res, "trim.info")                    # list: method, rule, counts before/after/removed
+attr(res, "trim.info")$threshold.table    # thresholds
 ```
 
-For `trim.method = "iqr"`, the threshold table includes:
+`trim.info` reports the number of pairwise values before trimming, after
+trimming, and removed, in total and separately for within-group and
+between-group-derived values (`n_total_*`, `n_within_*`, `n_between_*`).
+
+For `trim.method = "iqr"`, `threshold.table` includes:
 
 | Column              | Description                                       |
 |---------------------|---------------------------------------------------|
@@ -832,8 +988,8 @@ For `trim.method = "iqr"`, the threshold table includes:
 | `n_within_removed`  | Number of removed within-group values             |
 | `n_between_removed` | Number of removed between-group-derived values    |
 
-For `trim.method = "dvalue"`, the threshold table is a single-row
-summary (since the threshold is global rather than bin-specific):
+For `trim.method = "dvalue"`, `threshold.table` is a single-row summary
+(since the threshold is global rather than bin-specific):
 
 | Column | Description |
 |----|----|
@@ -841,6 +997,9 @@ summary (since the threshold is global rather than bin-specific):
 | `m.threshold` | The actual cutoff applied to M values (`d.threshold / sqrt(2)`) |
 | `n_total_before` | Total number of pairwise values before trimming |
 | `n_total_removed` | Total number of pairwise values removed |
+
+For `trim.method = "none"` (the automatic choice when every cell is
+replicated), `threshold.table` is empty and no values are removed.
 
 When `analysis.method = "standard_anova"` is selected,
 `attr(res, "trim.info")` is `NULL`.
@@ -858,8 +1017,8 @@ attr(res, "base.var")    # bin-level variance points used for trend fitting
 
 | Element | Description |
 |----|----|
-| `counts` | Full gene-by-pseudo-sample count matrix. Raw integer when `normalize_by_ncells = FALSE`; CP1K-scaled non-integer when `normalize_by_ncells = TRUE`. |
-| `metadata` | Pseudo-bulk sample metadata including condition, cell type, number of cells, library size, pseudo-bulk method, `normalize_by_ncells` flag, and `ncells_scale`. |
+| `counts` | Full gene-by-pseudo-sample count matrix. Raw integer counts in a sparse `dgCMatrix` when `normalize_by_ncells = FALSE`; a dense matrix of CP1K-scaled (generally non-integer) values when `normalize_by_ncells = TRUE`. |
+| `metadata` | Pseudo-bulk sample metadata: `sample_id` (`method = "sample"` only), `condition`, `celltype`, `pseudo_sample_id`, `n_cells`, `library_size` (raw summed counts), `method`, `normalize_by_ncells`, and `ncells_scale`. |
 | `counts_by_celltype` | If `split_by_celltype = TRUE`, a list of count matrices split by cell type. |
 | `metadata_by_celltype` | If `split_by_celltype = TRUE`, a list of metadata tables split by cell type. |
 
@@ -873,7 +1032,7 @@ attr(res, "base.var")    # bin-level variance points used for trend fitting
 | `counts_by_celltype` | Pseudo-bulk count matrices used for analysis, split by cell type. CP1K-scaled non-integer when `normalize_by_ncells = TRUE`. |
 | `metadata_by_celltype` | Pseudo-bulk sample metadata split by cell type. |
 | `prep_by_celltype` | Preprocessed LPEseq2 objects returned by [`LPE_preprocess()`](https://ldy0012.github.io/LPEseq2/reference/LPE_preprocess.md). |
-| `results_by_celltype` | Cell-type-specific differential expression result tables. |
+| `results_by_celltype` | Cell-type-specific differential expression result tables: the [`LPE_ANOVA()`](https://ldy0012.github.io/LPEseq2/reference/LPE_ANOVA.md) columns plus `celltype`, `requested_pseudobulk_method`, `selected_LPEseq2_method`, and `variance_training`. |
 | `combined_result` | Combined result table across all successfully analyzed cell types. |
 | `diagnostics` | Diagnostic information including group sizes, pseudo-bulk sample counts, cell counts, and library sizes. |
 | `errors` | Error or skipped-analysis messages for cell types that could not be analyzed. |
@@ -889,6 +1048,18 @@ You can run LPEseq2 directly in the browser using the Shiny web tool:
 
 [Launch LPEseq2 Shiny Web
 Tool](https://ldy0012.shinyapps.io/lpeseq2app/)
+
+------------------------------------------------------------------------
+
+## Citation
+
+If you use LPEseq2, please cite:
+
+- Lim D, Park J, Gim J. LPEseq2 (manuscript in preparation).
+- Lim D, Park J, Gim J. LPEseq2 v0.1.1. Zenodo. doi: \[to be added\]
+- Gim J, Won S, Park T (2016). LPEseq: Local-Pooled-Error Test for RNA
+  Sequencing Experiments with a Small Number of Replicates. *PLoS ONE*
+  11(8): e0159182. <doi:10.1371/journal.pone.0159182>
 
 ------------------------------------------------------------------------
 

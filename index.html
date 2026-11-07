@@ -11,8 +11,8 @@
 <script src="deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="Local Pooled Error-Based ANOVA for RNA-Seq Count Data">
-<meta name="description" content="Provides preprocessing and differential expression analysis functions for RNA-seq count data. The package supports raw count input checking, low-count gene filtering, library-size, TMM, and DESeq2-based normalization options. It provides local pooled error-based ANOVA for small-sample multi-group analysis, conventional gene-wise ANOVA for larger sample sizes, automatic method selection based on group sample size, and pooled bin-wise IQR or fixed-threshold outlier trimming for variance trend estimation. Designs may be one-way or multi-way with multiple main-effect factors (no interaction terms), specified via a formula such as ~ group or ~ genotype + treatment.">
-<meta property="og:description" content="Provides preprocessing and differential expression analysis functions for RNA-seq count data. The package supports raw count input checking, low-count gene filtering, library-size, TMM, and DESeq2-based normalization options. It provides local pooled error-based ANOVA for small-sample multi-group analysis, conventional gene-wise ANOVA for larger sample sizes, automatic method selection based on group sample size, and pooled bin-wise IQR or fixed-threshold outlier trimming for variance trend estimation. Designs may be one-way or multi-way with multiple main-effect factors (no interaction terms), specified via a formula such as ~ group or ~ genotype + treatment.">
+<meta name="description" content="Differential expression analysis of RNA-seq count data with few or no replicates per condition. Extends the local pooled error (LPE) test (Jain et al. 2003 &lt;doi:10.1093/bioinformatics/btg264&gt;; Gim et al. 2016 &lt;doi:10.1371/journal.pone.0159182&gt;) from two-group comparisons to one-way and additive multi-factor designs without interaction terms, specified via a formula such as ~ group or ~ genotype + treatment. An intensity-dependent variance trend is estimated from replicate pairs pooled across genes, with standardized between-cell differences and fixed-threshold trimming when design cells lack replication, and is used in term-specific Type II ANOVA-like tests. One-way designs can use a Welch-type statistic with pooled or group-specific variance trends. Gene-wise standard ANOVA is selected automatically when every design cell is well replicated. A pseudo-bulk workflow aggregates annotated single-cell data by sample and cell type, with optional counts per 1,000 cells scaling. Count filtering and library-size, TMM or DESeq2 normalization are provided, together with a Shiny interface.">
+<meta property="og:description" content="Differential expression analysis of RNA-seq count data with few or no replicates per condition. Extends the local pooled error (LPE) test (Jain et al. 2003 &lt;doi:10.1093/bioinformatics/btg264&gt;; Gim et al. 2016 &lt;doi:10.1371/journal.pone.0159182&gt;) from two-group comparisons to one-way and additive multi-factor designs without interaction terms, specified via a formula such as ~ group or ~ genotype + treatment. An intensity-dependent variance trend is estimated from replicate pairs pooled across genes, with standardized between-cell differences and fixed-threshold trimming when design cells lack replication, and is used in term-specific Type II ANOVA-like tests. One-way designs can use a Welch-type statistic with pooled or group-specific variance trends. Gene-wise standard ANOVA is selected automatically when every design cell is well replicated. A pseudo-bulk workflow aggregates annotated single-cell data by sample and cell type, with optional counts per 1,000 cells scaling. Count filtering and library-size, TMM or DESeq2 normalization are provided, together with a Shiny interface.">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="index.html">LPEseq2</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -50,8 +50,8 @@
 <div class="page-header"><h1 id="lpeseq2">LPEseq2<a class="anchor" aria-label="anchor" href="#lpeseq2"></a>
 </h1></div>
 <p>LPEseq2 is an R package for differential expression analysis of RNA-seq count data using local pooled error-based ANOVA and conventional ANOVA, supporting both one-way and multi-way (interaction-free) designs.</p>
-<p>Many RNA-seq studies — including pilot experiments, rare clinical sample studies, and reanalyses of public datasets — are limited to one or two biological replicates per condition. This constraint is especially common in single-cell RNA-seq (scRNA-seq), where the high per-sample cost of library preparation and sequencing often restricts the number of biological donors to one or two per condition, even when large numbers of cells are profiled. Under these low-replicate conditions, conventional differential expression methods such as DESeq2 and edgeR may produce unreliable results or fail to run, because per-gene dispersion estimation becomes unstable.</p>
-<p>LPEseq2 addresses this by borrowing variance information across genes with similar expression intensities rather than estimating it per gene independently, making it applicable even when only one replicate per group is available. LPEseq2 supports LPE-ANOVA for small-sample RNA-seq data, standard gene-wise ANOVA for larger sample sizes, and an automatic mode that selects the analysis method based on group sample size. The design can be one-way (<code>~ group</code>) or multi-way with multiple main-effect factors and no interaction terms (<code>~ genotype + treatment</code>); see <a href="#multi-way-no-interaction-designs">Multi-way (no-interaction) designs</a>.</p>
+<p>RNA-seq experiments in controlled model systems — cell lines, organoids and animal models, as well as pilot experiments — are often limited to one or two replicates per condition because repeated assays are costly or material is scarce. This constraint is especially common in single-cell RNA-seq (scRNA-seq), where the high per-sample cost of library preparation and sequencing often restricts the number of biological donors to one or two per condition, even when large numbers of cells are profiled. Under these low-replicate conditions, conventional differential expression methods such as DESeq2 and edgeR may produce unreliable results or fail to run, because per-gene dispersion estimation becomes unstable.</p>
+<p>LPEseq2 addresses this by borrowing variance information across genes with similar expression intensities rather than estimating it per gene independently, making it applicable even when only one replicate per group is available. Because the variance is modelled as a function of expression intensity, LPEseq2 is best suited to controlled experiments; it is less suited to heterogeneous samples, such as human tissue cohorts, in which inter-individual variability is the main question. LPEseq2 supports LPE-ANOVA for small-sample RNA-seq data, standard gene-wise ANOVA for larger sample sizes, and an automatic mode that selects the analysis method based on group sample size. The design can be one-way (<code>~ group</code>) or multi-way with multiple main-effect factors and no interaction terms (<code>~ genotype + treatment</code>); see <a href="#multi-way-no-interaction-designs">Multi-way (no-interaction) designs</a>.</p>
 <p>LPEseq2 also provides a Seurat-integrated pseudo-bulk workflow for cell-type-resolved differential expression analysis of annotated scRNA-seq data. This is particularly useful when the number of biological donors per condition is too small for conventional pseudo-bulk methods.</p>
 <blockquote>
 <p><strong>LPEseq2 is intended as a complementary exploratory tool, not a replacement for established methods such as DESeq2, edgeR, or limma-voom when adequate replication is available.</strong> The p-values and adjusted p-values produced by LPEseq2 should be treated as approximate candidate-gene ranking measures rather than calibrated false discovery rate guarantees. Biological follow-up validation is recommended.</p>
@@ -108,7 +108,7 @@
 </tr>
 <tr>
 <td><code><a href="reference/LPE_ANOVA_var.html">LPE_ANOVA_var()</a></code></td>
-<td>Estimates an intensity-dependent variance trend and stores trimming information</td>
+<td>Low-level function that estimates the intensity-dependent variance trend and stores trimming information. It is called internally by <code><a href="reference/LPE_ANOVA.html">LPE_ANOVA()</a></code>; when called directly, its defaults are <code>trim.method = "dvalue"</code> and <code>use_weighted_between = TRUE</code> (no <code>"auto"</code> rule)</td>
 </tr>
 <tr>
 <td><code><a href="reference/make_pseudobulk_from_seurat.html">make_pseudobulk_from_seurat()</a></code></td>
@@ -128,22 +128,26 @@
 <div class="section level3">
 <h3 id="bulk-rna-seq-count-matrix-input">Bulk RNA-seq count matrix input<a class="anchor" aria-label="anchor" href="#bulk-rna-seq-count-matrix-input"></a>
 </h3>
-<p>Supported file formats: CSV, TSV, and other delimiter-separated text files such as <code>.txt</code>. The separator is detected automatically.</p>
-<p>The count matrix should contain genes as rows and samples as columns. The first column must contain gene identifiers.</p>
+<p>In R, <code><a href="reference/LPE_preprocess.html">LPE_preprocess()</a></code> takes a <strong>numeric matrix</strong> of raw counts (genes as rows, samples as columns, gene identifiers as row names) and a <strong>data.frame</strong> of sample metadata (samples as row names, variables as columns). Counts must be non-negative and free of <code>NA</code>/<code>Inf</code>.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Example count matrix</span></span>
+<code class="sourceCode R"><span><span class="co"># Example count matrix (a numeric matrix with gene row names)</span></span>
 <span><span class="co">#        sample1 sample2 sample3 sample4</span></span>
 <span><span class="co"># gene1      100     120      80      95</span></span>
 <span><span class="co"># gene2       50      60      55      70</span></span></code></pre></div>
-<p>The sample metadata should contain samples as rows and variables as columns.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Example colData</span></span>
+<code class="sourceCode R"><span><span class="co"># Example colData (a data.frame with sample row names)</span></span>
 <span><span class="co">#          group</span></span>
 <span><span class="co"># sample1 Control</span></span>
 <span><span class="co"># sample2 Control</span></span>
 <span><span class="co"># sample3 Treatment</span></span>
 <span><span class="co"># sample4 Treatment</span></span></code></pre></div>
-<p>The column names of the count matrix must match the row names of <code>colData</code>.</p>
+<p>The column names of the count matrix and the row names of <code>colData</code> must contain the same sample names (the order may differ; <code>colData</code> is reordered to match the count matrix).</p>
+<p>A count table stored as a text file can be read into this format, for example:</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">counts</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.csv</a></span><span class="op">(</span><span class="st">"counts.csv"</span>, row.names <span class="op">=</span> <span class="fl">1</span>, check.names <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">colData</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.csv</a></span><span class="op">(</span><span class="st">"colData.csv"</span>, row.names <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></code></pre></div>
+<p>The Shiny web tool accepts CSV, TSV, and other delimiter-separated text files (such as <code>.txt</code>) directly; there, the first column must contain gene identifiers, and the separator is detected automatically.</p>
+<p>Low-count genes are removed before normalization: a gene is kept if it has at least <code>min.count</code> counts (default 5) in at least two samples.</p>
 <hr>
 </div>
 <div class="section level3">
@@ -151,12 +155,13 @@
 </h3>
 <p>For pseudo-bulk analysis, the input should be an annotated Seurat object with raw counts and cell-level metadata.</p>
 <p>The Seurat object should contain metadata columns for sample ID, condition, and cell type annotation.</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">seurat_obj</span><span class="op">$</span><span class="va">sample_id</span></span>
 <span><span class="va">seurat_obj</span><span class="op">$</span><span class="va">condition</span></span>
 <span><span class="va">seurat_obj</span><span class="op">$</span><span class="va">celltype</span></span></code></pre></div>
 <p>The metadata column names can be customized using the <code>sample_col</code>, <code>condition_col</code>, and <code>celltype_col</code> arguments.</p>
-<p>Pseudo-bulk count matrices are generated by summing raw counts across cells within each sample and cell type. <strong>Normalized or log-normalized expression values should not be used for pseudo-bulk aggregation.</strong></p>
+<p>Pseudo-bulk count matrices are generated by summing raw counts across cells within each sample and cell type. <strong>Normalized or log-normalized expression values should not be used for pseudo-bulk aggregation.</strong> Pseudo-bulk samples built from fewer than <code>min_cells</code> cells (default 10) are removed.</p>
+<p>In <code><a href="reference/LPE_pseudobulk.html">LPE_pseudobulk()</a></code>, each cell type is analysed with a one-way design on the condition column (<code>~ condition</code>); multi-way designs and <code>variance.eval</code> are available through <code><a href="reference/LPE_preprocess.html">LPE_preprocess()</a></code> + <code><a href="reference/LPE_ANOVA.html">LPE_ANOVA()</a></code>.</p>
 <p>Two aggregation modes are supported:</p>
 <table class="table">
 <colgroup>
@@ -195,11 +200,11 @@
 <p><strong>Normalization method compatibility:</strong></p>
 <ul>
 <li>
-<code>normalize_by_ncells = TRUE</code> produces non-integer values. Therefore, <strong>TMM and DESeq2 normalization are automatically disabled</strong> because they require raw integer counts.</li>
+<code>normalize_by_ncells = TRUE</code> produces non-integer values. Therefore, <strong>TMM and DESeq2 normalization are automatically disabled</strong> because they require raw integer counts: if <code>normalize.method</code> is <code>"TMM"</code> (the <code><a href="reference/LPE_pseudobulk.html">LPE_pseudobulk()</a></code> default) or <code>"DESeq2"</code>, it is set to <code>"none"</code> with a warning.</li>
 <li>
 <code>library_size</code> normalization <strong>remains available</strong> and can be combined with <code>normalize_by_ncells = TRUE</code> to additionally correct for sequencing depth differences after cell-number scaling:</li>
 </ul>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Correct for both cell-number imbalance and sequencing depth</span></span>
 <span><span class="va">res_pb</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_pseudobulk.html">LPE_pseudobulk</a></span><span class="op">(</span></span>
 <span>  seurat_obj <span class="op">=</span> <span class="va">seurat_obj</span>,</span>
@@ -208,10 +213,12 @@
 <span>  ncells_scale <span class="op">=</span> <span class="fl">1000</span>,</span>
 <span>  normalize.method <span class="op">=</span> <span class="st">"library_size"</span>,   <span class="co"># additionally correct for sequencing depth</span></span>
 <span>  min.count <span class="op">=</span> <span class="fl">1</span>,</span>
-<span>  <span class="va">...</span></span>
+<span>  sample_col <span class="op">=</span> <span class="st">"sample_id"</span>,</span>
+<span>  condition_col <span class="op">=</span> <span class="st">"condition"</span>,</span>
+<span>  celltype_col <span class="op">=</span> <span class="st">"celltype"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <ul>
-<li>When <code>normalize_by_ncells = TRUE</code> and <code>normalize.method = "none"</code> (default when TMM/DESeq2 is specified), only cell-number imbalance is corrected. Sequencing depth differences remain uncorrected.</li>
+<li>When <code>normalize_by_ncells = TRUE</code> and <code>normalize.method = "none"</code> (explicitly, or after TMM/DESeq2 has been switched off as above), only cell-number imbalance is corrected. Sequencing depth differences remain uncorrected.</li>
 <li>The <code>min.count</code> threshold should be adjusted to match the scaled count values (for example, <code>min.count = 1</code> instead of the default <code>5</code>).</li>
 </ul>
 <hr>
@@ -223,22 +230,23 @@
 <div class="section level3">
 <h3 id="basic-bulk-rna-seq-example">Basic bulk RNA-seq example<a class="anchor" aria-label="anchor" href="#basic-bulk-rna-seq-example"></a>
 </h3>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://ldy0012.github.io/LPEseq2/">LPEseq2</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">123</span><span class="op">)</span></span>
 <span></span>
+<span><span class="co"># 1,000 genes x 6 samples (3 Control, 3 Treatment)</span></span>
 <span><span class="va">counts</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/stats/NegBinomial.html" class="external-link">rnbinom</a></span><span class="op">(</span><span class="fl">1000</span>, mu <span class="op">=</span> <span class="fl">50</span>, size <span class="op">=</span> <span class="fl">10</span><span class="op">)</span>,</span>
-<span>  nrow <span class="op">=</span> <span class="fl">100</span>,</span>
-<span>  ncol <span class="op">=</span> <span class="fl">10</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/stats/NegBinomial.html" class="external-link">rnbinom</a></span><span class="op">(</span><span class="fl">6000</span>, mu <span class="op">=</span> <span class="fl">50</span>, size <span class="op">=</span> <span class="fl">10</span><span class="op">)</span>,</span>
+<span>  nrow <span class="op">=</span> <span class="fl">1000</span>,</span>
+<span>  ncol <span class="op">=</span> <span class="fl">6</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">rownames</a></span><span class="op">(</span><span class="va">counts</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"gene"</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">100</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">colnames</a></span><span class="op">(</span><span class="va">counts</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"sample"</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">10</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">rownames</a></span><span class="op">(</span><span class="va">counts</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"gene"</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">1000</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">colnames</a></span><span class="op">(</span><span class="va">counts</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"sample"</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">6</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">colData</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>  group <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Control"</span>, <span class="st">"Treatment"</span><span class="op">)</span>, each <span class="op">=</span> <span class="fl">5</span><span class="op">)</span>,</span>
+<span>  group <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Control"</span>, <span class="st">"Treatment"</span><span class="op">)</span>, each <span class="op">=</span> <span class="fl">3</span><span class="op">)</span>,</span>
 <span>  row.names <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">colnames</a></span><span class="op">(</span><span class="va">counts</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -246,33 +254,102 @@
 <span>  counts <span class="op">=</span> <span class="va">counts</span>,</span>
 <span>  colData <span class="op">=</span> <span class="va">colData</span>,</span>
 <span>  design <span class="op">=</span> <span class="op">~</span> <span class="va">group</span>,</span>
-<span>  normalize.method <span class="op">=</span> <span class="st">"library_size"</span>,</span>
+<span>  normalize.method <span class="op">=</span> <span class="st">"library_size"</span>,   <span class="co"># default</span></span>
 <span>  verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_ANOVA.html">LPE_ANOVA</a></span><span class="op">(</span></span>
-<span>  object <span class="op">=</span> <span class="va">prep</span>,</span>
-<span>  analysis.method <span class="op">=</span> <span class="st">"auto"</span>,</span>
-<span>  standard.min.group.n <span class="op">=</span> <span class="fl">5</span>,</span>
-<span>  n.bin <span class="op">=</span> <span class="fl">100</span>,</span>
-<span>  df <span class="op">=</span> <span class="fl">10</span>,</span>
-<span>  use_weighted_between <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  p.method <span class="op">=</span> <span class="st">"chisq"</span>,</span>
-<span>  verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
-<span><span class="op">)</span></span>
+<span><span class="co"># Default settings: analysis.method = "LPE",</span></span>
+<span><span class="co"># trim.method = "auto", use_weighted_between = "auto",</span></span>
+<span><span class="co"># n.bin = 100, df = 10, p.method = "chisq"</span></span>
+<span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_ANOVA.html">LPE_ANOVA</a></span><span class="op">(</span>object <span class="op">=</span> <span class="va">prep</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"analysis.method"</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"analysis.method"</span><span class="op">)</span>            <span class="co"># "LPE"</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"variance.settings"</span><span class="op">)</span><span class="op">$</span><span class="va">rule</span></span>
+<span><span class="co">#&gt; "within-group (replicate) pairs only, no trimming (smallest cell n = 3)"</span></span></code></pre></div>
+<p>Because every group has at least two samples, the automatic rule trains the variance trend on within-group replicate pairs only, without trimming (see <a href="#automatic-variance-training-settings">Automatic variance-training settings</a>).</p>
 <hr>
+</div>
+<div class="section level3">
+<h3 id="example-with-the-bundled-test-data">Example with the bundled test data<a class="anchor" aria-label="anchor" href="#example-with-the-bundled-test-data"></a>
+</h3>
+<p>The package ships simulated test data and the results expected from the current version in <code>inst/testdat/</code>:</p>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr>
+<th>File</th>
+<th>Content</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+<code>LPEseq2_2group_test_counts.csv</code>, <code>LPEseq2_2group_test_metadata.csv</code>
+</td>
+<td>1,000 genes; 6 Control vs 6 Treatment_A</td>
+</tr>
+<tr>
+<td>
+<code>LPEseq2_test_counts.csv</code>, <code>LPEseq2_test_metadata.csv</code>
+</td>
+<td>1,000 genes; Control, Treatment_A, Treatment_B (6 each) over two batches</td>
+</tr>
+<tr>
+<td>
+<code>LPEseq2_2group_expected_results.csv</code>, <code>LPEseq2_multiway_expected_results.csv</code>
+</td>
+<td>Expected <code><a href="reference/LPE_ANOVA.html">LPE_ANOVA()</a></code> output with default settings</td>
+</tr>
+<tr>
+<td><code>make_expected_results.R</code></td>
+<td>Script that regenerates the expected results</td>
+</tr>
+</tbody>
+</table>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://ldy0012.github.io/LPEseq2/">LPEseq2</a></span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">testdat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"testdat"</span>, package <span class="op">=</span> <span class="st">"LPEseq2"</span><span class="op">)</span></span>
+<span><span class="va">read_counts</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">f</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.csv</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">testdat</span>, <span class="va">f</span><span class="op">)</span>,</span>
+<span>                                              row.names <span class="op">=</span> <span class="fl">1</span>, check.names <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">read_meta</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">f</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.csv</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">testdat</span>, <span class="va">f</span><span class="op">)</span>, row.names <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Two groups, ~ group</span></span>
+<span><span class="va">prep2</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_preprocess.html">LPE_preprocess</a></span><span class="op">(</span><span class="fu">read_counts</span><span class="op">(</span><span class="st">"LPEseq2_2group_test_counts.csv"</span><span class="op">)</span>,</span>
+<span>                        <span class="fu">read_meta</span><span class="op">(</span><span class="st">"LPEseq2_2group_test_metadata.csv"</span><span class="op">)</span>,</span>
+<span>                        design <span class="op">=</span> <span class="op">~</span> <span class="va">group</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span><span class="va">res2</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_ANOVA.html">LPE_ANOVA</a></span><span class="op">(</span><span class="va">prep2</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">res2</span><span class="op">$</span><span class="va">q.value</span> <span class="op">&lt;</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<span><span class="co">#&gt; 82</span></span>
+<span></span>
+<span><span class="co"># Three groups with a batch factor, ~ group + batch</span></span>
+<span><span class="va">prep3</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_preprocess.html">LPE_preprocess</a></span><span class="op">(</span><span class="fu">read_counts</span><span class="op">(</span><span class="st">"LPEseq2_test_counts.csv"</span><span class="op">)</span>,</span>
+<span>                        <span class="fu">read_meta</span><span class="op">(</span><span class="st">"LPEseq2_test_metadata.csv"</span><span class="op">)</span>,</span>
+<span>                        design <span class="op">=</span> <span class="op">~</span> <span class="va">group</span> <span class="op">+</span> <span class="va">batch</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span><span class="va">res3</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_ANOVA.html">LPE_ANOVA</a></span><span class="op">(</span><span class="va">prep3</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">res3</span><span class="op">$</span><span class="va">q.value_group</span> <span class="op">&lt;</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<span><span class="co">#&gt; 133</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">res3</span><span class="op">$</span><span class="va">q.value_batch</span> <span class="op">&lt;</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<span><span class="co">#&gt; 3</span></span>
+<span></span>
+<span><span class="co"># Compare with the shipped expected results</span></span>
+<span><span class="va">expected</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.csv</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">testdat</span>, <span class="st">"LPEseq2_2group_expected_results.csv"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/all.equal.html" class="external-link">all.equal</a></span><span class="op">(</span><span class="va">res2</span><span class="op">$</span><span class="va">p.value</span>, <span class="va">expected</span><span class="op">$</span><span class="va">p.value</span><span class="op">)</span></span>
+<span><span class="co">#&gt; TRUE</span></span></code></pre></div>
+<p>The same comparison is run automatically by the package tests (<code>tests/testthat/test-expected-results.R</code>).</p>
 </div>
 <div class="section level3">
 <h3 id="pseudo-bulk-analysis-from-an-annotated-seurat-object">Pseudo-bulk analysis from an annotated Seurat object<a class="anchor" aria-label="anchor" href="#pseudo-bulk-analysis-from-an-annotated-seurat-object"></a>
 </h3>
 <p>The recommended pseudo-bulk workflow is to aggregate raw counts at the sample-by-cell-type level and run LPEseq2 separately for each cell type.</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://ldy0012.github.io/LPEseq2/">LPEseq2</a></span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Standard pseudo-bulk (raw integer counts, library_size normalization)</span></span>
+<span><span class="co"># Standard pseudo-bulk (raw integer counts)</span></span>
+<span><span class="co"># Defaults shown: normalize.method = "TMM" (requires edgeR),</span></span>
+<span><span class="co"># analysis.method = "auto", trim.method = "auto", use_weighted_between = "auto"</span></span>
 <span><span class="va">res_pb</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_pseudobulk.html">LPE_pseudobulk</a></span><span class="op">(</span></span>
 <span>  seurat_obj <span class="op">=</span> <span class="va">seurat_obj</span>,</span>
 <span>  method <span class="op">=</span> <span class="st">"sample"</span>,</span>
@@ -282,17 +359,15 @@
 <span>  condition_col <span class="op">=</span> <span class="st">"condition"</span>,</span>
 <span>  celltype_col <span class="op">=</span> <span class="st">"celltype"</span>,</span>
 <span>  min_cells <span class="op">=</span> <span class="fl">10</span>,</span>
-<span>  normalize.method <span class="op">=</span> <span class="st">"library_size"</span>,</span>
+<span>  normalize.method <span class="op">=</span> <span class="st">"TMM"</span>,</span>
 <span>  analysis.method <span class="op">=</span> <span class="st">"auto"</span>,</span>
 <span>  standard.min.group.n <span class="op">=</span> <span class="fl">5</span>,</span>
-<span>  n.bin <span class="op">=</span> <span class="fl">100</span>,</span>
-<span>  df <span class="op">=</span> <span class="fl">10</span>,</span>
-<span>  trim.method <span class="op">=</span> <span class="st">"iqr"</span>,</span>
 <span>  p.method <span class="op">=</span> <span class="st">"chisq"</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
+<p>With <code>analysis.method = "auto"</code>, standard ANOVA is used for a cell type when every condition has at least <code>standard.min.group.n</code> pseudo-bulk samples; otherwise LPE-ANOVA is used. The method and the variance-training rule chosen for each cell type are reported in the <code>selected_LPEseq2_method</code> and <code>variance_training</code> columns of the result.</p>
 <p>When cell numbers are substantially unequal across samples within a cell type, use <code>normalize_by_ncells = TRUE</code> to scale each sample’s counts to a CP1K (per-1000-cells) basis before analysis:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Cell-number-normalized pseudo-bulk (CP1K scaling)</span></span>
 <span><span class="va">res_pb_norm</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_pseudobulk.html">LPE_pseudobulk</a></span><span class="op">(</span></span>
 <span>  seurat_obj <span class="op">=</span> <span class="va">seurat_obj</span>,</span>
@@ -309,9 +384,6 @@
 <span>  min.count <span class="op">=</span> <span class="fl">1</span>,                     <span class="co"># adjust threshold for scaled count values</span></span>
 <span>  analysis.method <span class="op">=</span> <span class="st">"auto"</span>,</span>
 <span>  standard.min.group.n <span class="op">=</span> <span class="fl">5</span>,</span>
-<span>  n.bin <span class="op">=</span> <span class="fl">100</span>,</span>
-<span>  df <span class="op">=</span> <span class="fl">10</span>,</span>
-<span>  trim.method <span class="op">=</span> <span class="st">"iqr"</span>,</span>
 <span>  p.method <span class="op">=</span> <span class="st">"chisq"</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -319,24 +391,24 @@
 <p><strong>Note:</strong> When <code>normalize_by_ncells = TRUE</code>, TMM and DESeq2 normalization are automatically disabled because they require raw integer counts. Use <code>normalize.method = "library_size"</code> or <code>"none"</code> in combination with <code>normalize_by_ncells = TRUE</code>.</p>
 </blockquote>
 <p>The combined result across all analyzed cell types can be accessed as:</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">all_res</span> <span class="op">&lt;-</span> <span class="va">res_pb</span><span class="op">$</span><span class="va">combined_result</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">all_res</span><span class="op">)</span></span></code></pre></div>
 <p>Cell-type-specific results can be accessed as:</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">res_pb</span><span class="op">$</span><span class="va">results_by_celltype</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">cd4_res</span> <span class="op">&lt;-</span> <span class="va">res_pb</span><span class="op">$</span><span class="va">results_by_celltype</span><span class="op">$</span><span class="va">CD4_T</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">cd4_res</span><span class="op">)</span></span></code></pre></div>
 <p>Pseudo-bulk metadata and diagnostic information can be checked as:</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">cd4_meta</span> <span class="op">&lt;-</span> <span class="va">res_pb</span><span class="op">$</span><span class="va">metadata_by_celltype</span><span class="op">$</span><span class="va">CD4_T</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">cd4_meta</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">res_pb</span><span class="op">$</span><span class="va">diagnostics</span><span class="op">$</span><span class="va">CD4_T</span></span>
 <span><span class="va">res_pb</span><span class="op">$</span><span class="va">errors</span></span></code></pre></div>
 <p>If only selected cell types should be analyzed, use the <code>celltypes</code> argument:</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">res_cd4</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_pseudobulk.html">LPE_pseudobulk</a></span><span class="op">(</span></span>
 <span>  seurat_obj <span class="op">=</span> <span class="va">seurat_obj</span>,</span>
 <span>  method <span class="op">=</span> <span class="st">"sample"</span>,</span>
@@ -351,7 +423,7 @@
 <h3 id="creating-pseudo-bulk-count-matrices-only">Creating pseudo-bulk count matrices only<a class="anchor" aria-label="anchor" href="#creating-pseudo-bulk-count-matrices-only"></a>
 </h3>
 <p>If you only want to generate pseudo-bulk count matrices without running LPEseq2, use <code><a href="reference/make_pseudobulk_from_seurat.html">make_pseudobulk_from_seurat()</a></code>:</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Standard pseudo-bulk (raw integer counts)</span></span>
 <span><span class="va">pb</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/make_pseudobulk_from_seurat.html">make_pseudobulk_from_seurat</a></span><span class="op">(</span></span>
 <span>  seurat_obj <span class="op">=</span> <span class="va">seurat_obj</span>,</span>
@@ -380,7 +452,7 @@
 <span>  ncells_scale <span class="op">=</span> <span class="fl">1000</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <p>The output contains both the full pseudo-bulk matrix and cell-type-specific matrices:</p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">pb</span><span class="op">$</span><span class="va">counts</span></span>
 <span><span class="va">pb</span><span class="op">$</span><span class="va">metadata</span></span>
 <span></span>
@@ -393,16 +465,14 @@
 <div class="section level3">
 <h3 id="advanced-example-with-iqr-based-trimming">Advanced example with IQR-based trimming<a class="anchor" aria-label="anchor" href="#advanced-example-with-iqr-based-trimming"></a>
 </h3>
-<p>The <code>iqr</code> trimming method applies the conventional 1.5 × IQR boxplot rule within expression-intensity A-bins. Within-group and between-group-derived pairwise values are pooled before trimming, and outliers are detected on the M-value scale used for variance trend estimation.</p>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<p>The <code>iqr</code> trimming method applies the conventional 1.5 × IQR boxplot rule within expression-intensity A-bins. When <code>use_weighted_between = TRUE</code>, within-group and between-group-derived pairwise values are pooled before trimming; outliers are detected on the M-value scale used for variance trend estimation.</p>
+<p>Explicitly supplied values override the automatic rule. In the example below (three samples per group), the automatic rule would use replicate pairs without trimming; setting both arguments forces between-group pairs and IQR trimming.</p>
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">res_iqr</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_ANOVA.html">LPE_ANOVA</a></span><span class="op">(</span></span>
 <span>  object <span class="op">=</span> <span class="va">prep</span>,</span>
 <span>  analysis.method <span class="op">=</span> <span class="st">"LPE"</span>,</span>
-<span>  n.bin <span class="op">=</span> <span class="fl">100</span>,</span>
-<span>  df <span class="op">=</span> <span class="fl">10</span>,</span>
-<span>  trim.method <span class="op">=</span> <span class="st">"iqr"</span>,</span>
-<span>  use_weighted_between <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  p.method <span class="op">=</span> <span class="st">"chisq"</span>,</span>
+<span>  trim.method <span class="op">=</span> <span class="st">"iqr"</span>,           <span class="co"># overrides "auto"</span></span>
+<span>  use_weighted_between <span class="op">=</span> <span class="cn">TRUE</span>,   <span class="co"># overrides "auto"</span></span>
 <span>  verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -410,7 +480,9 @@
 <span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res_iqr</span>, <span class="st">"trim.info"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res_iqr</span>, <span class="st">"trend.info"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res_iqr</span>, <span class="st">"base.var"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res_iqr</span>, <span class="st">"var.spline"</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res_iqr</span>, <span class="st">"var.spline"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res_iqr</span>, <span class="st">"variance.settings"</span><span class="op">)</span><span class="op">$</span><span class="va">rule</span></span>
+<span><span class="co">#&gt; "within- and weighted between-group pairs, IQR trimming (smallest cell n = 3)"</span></span></code></pre></div>
 <hr>
 </div>
 </div>
@@ -442,27 +514,28 @@
 </tr>
 </tbody>
 </table>
+<p>The default is <code>analysis.method = "LPE"</code> in <code><a href="reference/LPE_ANOVA.html">LPE_ANOVA()</a></code> and <code>analysis.method = "auto"</code> in <code><a href="reference/LPE_pseudobulk.html">LPE_pseudobulk()</a></code>.</p>
+<p>P-values are computed from <code>df × F ~ χ²(df)</code> by default (<code>p.method = "chisq"</code>); <code>p.method = "F_inf"</code> uses an F distribution with a very large denominator degrees of freedom (<code>df2 = 1e6</code>). Both apply to LPE-ANOVA; standard ANOVA uses the usual F distribution with the residual degrees of freedom.</p>
 <div class="section level3">
 <h3 id="lpe-anova-mode">LPE-ANOVA mode<a class="anchor" aria-label="anchor" href="#lpe-anova-mode"></a>
 </h3>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">res_lpe</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_ANOVA.html">LPE_ANOVA</a></span><span class="op">(</span></span>
 <span>  object <span class="op">=</span> <span class="va">prep</span>,</span>
-<span>  analysis.method <span class="op">=</span> <span class="st">"LPE"</span>,</span>
-<span>  n.bin <span class="op">=</span> <span class="fl">100</span>,</span>
-<span>  df <span class="op">=</span> <span class="fl">10</span>,</span>
-<span>  use_weighted_between <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  p.method <span class="op">=</span> <span class="st">"chisq"</span>,</span>
+<span>  analysis.method <span class="op">=</span> <span class="st">"LPE"</span>,   <span class="co"># default</span></span>
+<span>  n.bin <span class="op">=</span> <span class="fl">100</span>,               <span class="co"># number of expression-intensity A-bins (default)</span></span>
+<span>  df <span class="op">=</span> <span class="fl">10</span>,                   <span class="co"># smoothing-spline degrees of freedom (default)</span></span>
+<span>  p.method <span class="op">=</span> <span class="st">"chisq"</span>,        <span class="co"># default</span></span>
 <span>  verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<p>The <code>use_weighted_between</code> argument controls whether between-group-derived pairwise values are incorporated into variance trend estimation when within-group pairs are sparse. When <code>TRUE</code>, these values are included (and should be trimmed) to reduce contamination from true biological group differences. This option is needed for non-replicated data where within-group pairs are unavailable.</p>
+<p>The <code>use_weighted_between</code> argument controls whether between-group-derived pairwise values are incorporated into variance trend estimation. When <code>TRUE</code>, these values are included and should be trimmed to reduce contamination from true biological group differences. They are required for non-replicated data, where within-group pairs are unavailable for at least one group.</p>
 <p>The <code>trim.method</code> argument controls outlier trimming for pairwise values used in variance trend estimation (<code>"auto"</code>, <code>"dvalue"</code>, <code>"iqr"</code>, or <code>"none"</code>); see <a href="#trimming-options">Trimming options</a> for details.</p>
 <p>By default both arguments are <code>"auto"</code>; see <a href="#automatic-variance-training-settings">Automatic variance-training settings</a>.</p>
 </div>
 <div class="section level3">
 <h3 id="standard-anova-mode">Standard ANOVA mode<a class="anchor" aria-label="anchor" href="#standard-anova-mode"></a>
 </h3>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">res_standard</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_ANOVA.html">LPE_ANOVA</a></span><span class="op">(</span></span>
 <span>  object <span class="op">=</span> <span class="va">prep</span>,</span>
 <span>  analysis.method <span class="op">=</span> <span class="st">"standard_anova"</span>,</span>
@@ -473,19 +546,16 @@
 <h3 id="auto-mode">Auto mode<a class="anchor" aria-label="anchor" href="#auto-mode"></a>
 </h3>
 <p>In <code>auto</code> mode, LPEseq2 selects standard ANOVA when every group (or, for multi-way designs, every factor-level combination) has at least <code>standard.min.group.n</code> samples. Otherwise, LPE-ANOVA is used.</p>
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">res_auto</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_ANOVA.html">LPE_ANOVA</a></span><span class="op">(</span></span>
 <span>  object <span class="op">=</span> <span class="va">prep</span>,</span>
 <span>  analysis.method <span class="op">=</span> <span class="st">"auto"</span>,</span>
 <span>  standard.min.group.n <span class="op">=</span> <span class="fl">5</span>,</span>
-<span>  n.bin <span class="op">=</span> <span class="fl">100</span>,</span>
-<span>  df <span class="op">=</span> <span class="fl">10</span>,</span>
-<span>  use_weighted_between <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  p.method <span class="op">=</span> <span class="st">"chisq"</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res_auto</span>, <span class="st">"analysis.method"</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res_auto</span>, <span class="st">"analysis.method"</span><span class="op">)</span>            <span class="co"># "LPE" (3 samples per group &lt; 5)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res_auto</span>, <span class="st">"requested.analysis.method"</span><span class="op">)</span>  <span class="co"># "auto"</span></span></code></pre></div>
 <p>The default threshold is <code>standard.min.group.n = 5</code>. This is a practical heuristic and can be adjusted depending on the study design and the expected reliability of gene-wise variance estimation.</p>
 <hr>
 </div>
@@ -493,8 +563,18 @@
 <h3 id="multi-way-no-interaction-designs">Multi-way (no-interaction) designs<a class="anchor" aria-label="anchor" href="#multi-way-no-interaction-designs"></a>
 </h3>
 <p><code>design</code> in <code><a href="reference/LPE_preprocess.html">LPE_preprocess()</a></code> accepts more than one main-effect term, e.g. <code>~ genotype + treatment</code>. Interaction terms (<code>A:B</code> or <code>A*B</code>) are not supported and raise an error, since the LPE variance-trend / test-statistic machinery assumes an additive model.</p>
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">colData_mw</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># 1,000 genes x 8 samples: 2 genotypes x 2 treatments, 2 samples per combination</span></span>
+<span><span class="va">counts_mw</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/stats/NegBinomial.html" class="external-link">rnbinom</a></span><span class="op">(</span><span class="fl">8000</span>, mu <span class="op">=</span> <span class="fl">50</span>, size <span class="op">=</span> <span class="fl">10</span><span class="op">)</span>,</span>
+<span>  nrow <span class="op">=</span> <span class="fl">1000</span>,</span>
+<span>  ncol <span class="op">=</span> <span class="fl">8</span>,</span>
+<span>  dimnames <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"gene"</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">1000</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"s"</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">8</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">colData_mw</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  genotype  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"wt"</span>, <span class="st">"mut"</span><span class="op">)</span>, each <span class="op">=</span> <span class="fl">2</span><span class="op">)</span>, times <span class="op">=</span> <span class="fl">2</span><span class="op">)</span>,</span>
 <span>  treatment <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"control"</span>, <span class="st">"drug"</span><span class="op">)</span>, each <span class="op">=</span> <span class="fl">4</span><span class="op">)</span>,</span>
 <span>  row.names <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">colnames</a></span><span class="op">(</span><span class="va">counts_mw</span><span class="op">)</span></span>
@@ -515,12 +595,15 @@
 <span>  verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">res_mw</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">res_mw</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res_mw</span>, <span class="st">"analysis.method"</span><span class="op">)</span>   <span class="co"># "LPE" (2 samples per combination &lt; 5)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res_mw</span>, <span class="st">"design.terms"</span><span class="op">)</span>      <span class="co"># "genotype" "treatment"</span></span></code></pre></div>
 <p>Each design term’s main effect is tested with a Type II sum-of-squares decomposition (comparing the full additive model against the model with that term dropped), which is order-independent for a main-effects-only design. For a one-way design, the result columns are unsuffixed (<code>MS_between</code>, <code>F</code>, <code>p.value</code>, <code>q.value</code>, …) exactly as before. For a multi-way design, one set of columns is reported per term, suffixed by the term name, e.g.:</p>
 <pre><code>gene, mean, var, MS_between_genotype, F_genotype, p.value_genotype, q.value_genotype,
 MS_between_treatment, F_treatment, p.value_treatment, q.value_treatment, method</code></pre>
+<p>With <code>analysis.method = "standard_anova"</code>, <code>MS_within</code> and <code>df2</code> are reported once and <code>df1_&lt;term&gt;</code> is added for each term.</p>
 <p><code>variance.eval = "per_group"</code> (Welch-style, per-group variance evaluation) is only supported for one-way designs; it raises an error for multi-way designs; use <code>variance.eval = "grand_mean"</code> (the default) instead. <code>attr(res, "design.terms")</code> reports the design term names that were tested.</p>
-<p>Column names that are not syntactically valid R names (for example <code>time point</code>, containing a space) can be used in <code>design</code> if they are backquoted, e.g. <code>~ genotype +</code>time point`<code>; the output columns are then named</code>F_time point<code>,</code>q.value_time point`, and so on.</p>
+<p>Column names that are not syntactically valid R names (for example <code>time point</code>, containing a space) can be used in <code>design</code> if they are backquoted, e.g. <code>~ genotype + `time point`</code>; the output columns are then named <code>F_time point</code>, <code>q.value_time point</code>, and so on.</p>
 <div class="section level4">
 <h4 id="multi-way-analysis-in-the-shiny-web-tool">Multi-way analysis in the Shiny web tool<a class="anchor" aria-label="anchor" href="#multi-way-analysis-in-the-shiny-web-tool"></a>
 </h4>
@@ -538,26 +621,27 @@ MS_between_treatment, F_treatment, p.value_treatment, q.value_treatment, method<
 <h3 id="notes-on-pseudo-bulk-interpretation">Notes on pseudo-bulk interpretation<a class="anchor" aria-label="anchor" href="#notes-on-pseudo-bulk-interpretation"></a>
 </h3>
 <p>For pseudo-bulk differential expression analysis, <code>method = "sample"</code> is recommended because it preserves biological replicates. For example, if there are three control samples and three case samples, CD4_T pseudo-bulk analysis will use:</p>
-<pre><code><span><span class="va">control1_CD4_T</span></span>
-<span><span class="va">control2_CD4_T</span></span>
-<span><span class="va">control3_CD4_T</span></span>
-<span><span class="va">case1_CD4_T</span></span>
-<span><span class="va">case2_CD4_T</span></span>
-<span><span class="va">case3_CD4_T</span></span></code></pre>
+<pre><code><span><span class="va">control1__control__CD4_T</span></span>
+<span><span class="va">control2__control__CD4_T</span></span>
+<span><span class="va">control3__control__CD4_T</span></span>
+<span><span class="va">case1__case__CD4_T</span></span>
+<span><span class="va">case2__case__CD4_T</span></span>
+<span><span class="va">case3__case__CD4_T</span></span></code></pre>
+<p>(Pseudo-sample names are <code>sample__condition__celltype</code>, joined with <code>id_sep = "__"</code> in <code><a href="reference/make_pseudobulk_from_seurat.html">make_pseudobulk_from_seurat()</a></code>.)</p>
 <p>This structure allows LPEseq2 to model group-level differences while retaining sample-level variability.</p>
 <p>In contrast, <code>method = "condition"</code> pools all cells within each condition and cell type:</p>
-<pre><code><span><span class="va">control_CD4_T</span></span>
-<span><span class="va">case_CD4_T</span></span></code></pre>
-<p>This usually results in one pseudo-bulk sample per condition and cell type. It can be useful for exploratory pooled comparisons, but p-values and adjusted p-values should be interpreted cautiously because biological replicate information is not preserved.</p>
+<pre><code><span><span class="va">control__CD4_T</span></span>
+<span><span class="va">case__CD4_T</span></span></code></pre>
+<p>This usually results in one pseudo-bulk sample per condition and cell type, so the automatic rule uses weighted between-group pairs with D-value trimming. It can be useful for exploratory pooled comparisons, but p-values and adjusted p-values should be interpreted cautiously because biological replicate information is not preserved.</p>
 <div class="section level4">
 <h4 id="cell-number-imbalance">Cell number imbalance<a class="anchor" aria-label="anchor" href="#cell-number-imbalance"></a>
 </h4>
 <p>When the number of cells varies substantially across samples for a given cell type, this can inflate library size differences between pseudo-bulk samples and affect downstream normalization. The <code>normalize_by_ncells</code> option addresses this by scaling each sample’s counts to a CP1K (per-1000-cells) basis before analysis.</p>
 <p>Before deciding whether to use <code>normalize_by_ncells</code>, it is recommended to check the distribution of cell counts across samples:</p>
-<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Check cell count distribution before running LPE_pseudobulk</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">seurat_obj</span><span class="op">$</span><span class="va">sample_id</span>, <span class="va">seurat_obj</span><span class="op">$</span><span class="va">celltype</span><span class="op">)</span></span></code></pre></div>
-<p>If cell counts differ by more than approximately 2-fold across samples for a given cell type, <code>normalize_by_ncells = TRUE</code> is recommended.</p>
+<p>As a rule of thumb, <code>normalize_by_ncells = TRUE</code> can be considered when cell counts differ by more than approximately 2-fold across samples for a given cell type. This threshold is a practical guideline, not a value enforced by the package.</p>
 <hr>
 </div>
 </div>
@@ -603,13 +687,17 @@ MS_between_treatment, F_treatment, p.value_treatment, q.value_treatment, method<
 </tbody>
 </table>
 <p>Replicate pairs contain no treatment effect, so trimming them only removes genuine noise and under-estimates the variance (liberal calls); between-group pairs contain true effects and must be trimmed. The rule follows LPEseq1 (Gim et al. 2016), which uses replicate pairs without outlier removal whenever a group is replicated, and trimmed between-condition pairs only for non-replicated groups. Values given explicitly are always used as given. The settings actually used are stored in <code>attr(res, "variance.settings")</code> (and in the <code>variance_training</code> column of <code><a href="reference/LPE_pseudobulk.html">LPE_pseudobulk()</a></code> results).</p>
-<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_ANOVA.html">LPE_ANOVA</a></span><span class="op">(</span><span class="va">obj</span><span class="op">)</span>                       <span class="co"># auto</span></span>
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_ANOVA.html">LPE_ANOVA</a></span><span class="op">(</span><span class="va">prep</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span>     <span class="co"># auto (prep from the basic example)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"variance.settings"</span><span class="op">)</span><span class="op">$</span><span class="va">rule</span></span>
 <span><span class="co">#&gt; "within-group (replicate) pairs only, no trimming (smallest cell n = 3)"</span></span>
 <span></span>
-<span><span class="va">res_old</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_ANOVA.html">LPE_ANOVA</a></span><span class="op">(</span><span class="va">obj</span>, trim.method <span class="op">=</span> <span class="st">"dvalue"</span>,</span>
-<span>                     use_weighted_between <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>   <span class="co"># behaviour of LPEseq2 &lt;= 0.0.1</span></span></code></pre></div>
+<span><span class="va">res_old</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_ANOVA.html">LPE_ANOVA</a></span><span class="op">(</span><span class="va">prep</span>, trim.method <span class="op">=</span> <span class="st">"dvalue"</span>,</span>
+<span>                     use_weighted_between <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>                     verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span>               <span class="co"># defaults of LPEseq2 0.0.1</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res_old</span>, <span class="st">"variance.settings"</span><span class="op">)</span><span class="op">$</span><span class="va">rule</span></span>
+<span><span class="co">#&gt; "within- and weighted between-group pairs, dvalue trimming (smallest cell n = 3)"</span></span></code></pre></div>
+<p><code>attr(res, "variance.settings")</code> also contains <code>trim.method</code>, <code>use_weighted_between</code>, <code>auto</code> (whether the automatic rule was applied), <code>replicated</code>, <code>min_cell_n</code>, <code>variance.trend</code> (<code>"pooled"</code> or <code>"per_group"</code>), and, with <code>variance.eval = "per_group"</code>, <code>trend.source</code> (the trend used by each group).</p>
 <hr>
 </div>
 <div class="section level2">
@@ -628,7 +716,7 @@ MS_between_treatment, F_treatment, p.value_treatment, q.value_treatment, method<
 <tbody>
 <tr>
 <td><code>iqr</code></td>
-<td>Applies the conventional 1.5 × IQR boxplot rule within expression-intensity A-bins after pooling within-group and between-group-derived pairwise values</td>
+<td>Applies the conventional 1.5 × IQR boxplot rule within expression-intensity A-bins to the pairwise values used for training (within-group values, pooled with between-group-derived values when <code>use_weighted_between = TRUE</code>)</td>
 </tr>
 <tr>
 <td><code>dvalue</code></td>
@@ -640,7 +728,7 @@ MS_between_treatment, F_treatment, p.value_treatment, q.value_treatment, method<
 </tr>
 </tbody>
 </table>
-<p>When <code>trim.method = "iqr"</code>, LPEseq2 first pools within-group pairwise values and between-group-derived values. The pooled values are divided into expression-intensity A-bins, and the conventional boxplot rule is applied within each bin:</p>
+<p>When <code>trim.method = "iqr"</code>, LPEseq2 first collects the training values (within-group pairwise values, plus between-group-derived values when <code>use_weighted_between = TRUE</code>). These values are divided into expression-intensity A-bins, and the conventional boxplot rule is applied within each bin:</p>
 <pre><code><span><span class="va">lower_bound</span> <span class="op">=</span> <span class="va">Q1</span> <span class="op">-</span> <span class="fl">1.5</span> <span class="op">*</span> <span class="va">IQR</span></span>
 <span><span class="va">upper_bound</span> <span class="op">=</span> <span class="va">Q3</span> <span class="op">+</span> <span class="fl">1.5</span> <span class="op">*</span> <span class="va">IQR</span></span></code></pre>
 <p>When <code>trim.method = "dvalue"</code>, LPEseq2 removes any pairwise value whose M value (the rescaled difference used for variance estimation) exceeds <code>d.threshold / sqrt(2)</code> in absolute value, prior to variance trend estimation. Thresholding on M rather than raw D keeps the cutoff equally strict regardless of within- vs. between-group origin or group size. This reproduces the outlier-removal step of LPEseq1’s non-replicate analysis (Gim et al. 2016), where the equivalent M value was thresholded at a fixed value (default <code>d.threshold = 1.2</code>, i.e. |M| ≤ 0.849) chosen empirically via reproducibility analysis across benchmark datasets. Users should verify whether this default is appropriate for their own normalization scale and log-transform.</p>
@@ -678,7 +766,7 @@ MS_between_treatment, F_treatment, p.value_treatment, q.value_treatment, method<
 </tr>
 <tr>
 <td><code>var</code></td>
-<td>Estimated variance used in the test. For LPE-ANOVA, this is the intensity-dependent pooled variance σ²(A) predicted from the spline. For standard ANOVA, this is the within-group residual variance.</td>
+<td>Estimated variance used in the test. For LPE-ANOVA, this is the intensity-dependent pooled variance σ²(A) predicted from the spline at the gene’s mean expression. With <code>variance.eval = "per_group"</code>, it is the variance of the weighted mean, 1 / Σ wᵢ (wᵢ = nᵢ / σ²(ȳᵢ)). For standard ANOVA, this is the within-group residual variance (<code>MS_within</code>).</td>
 </tr>
 <tr>
 <td><code>MS_between</code></td>
@@ -698,7 +786,8 @@ MS_between_treatment, F_treatment, p.value_treatment, q.value_treatment, method<
 </tr>
 <tr>
 <td><code>method</code></td>
-<td>Analysis method used for the gene</td>
+<td>Analysis method used: <code>"LPE"</code>, <code>"LPE_Welch"</code> (<code>variance.eval = "per_group"</code>), or <code>"standard_anova"</code>
+</td>
 </tr>
 </tbody>
 </table>
@@ -724,10 +813,43 @@ MS_between_treatment, F_treatment, p.value_treatment, q.value_treatment, method<
 </tr>
 <tr>
 <td><code>"per_group"</code></td>
-<td>Variance is evaluated separately at each group’s own mean expression level (Welch-style weighted ANOVA). Mathematically equivalent to LPEseq1’s z-test when k=2. Recommended when group means differ substantially in expression intensity.</td>
+<td>Variance is evaluated separately at each group’s own mean expression level (Welch-style weighted ANOVA, one-way designs only; <code>method = "LPE_Welch"</code>). For two groups the statistic has the same form as LPEseq1’s z-statistic (T = z²), but the variance trend is estimated differently from LPEseq1, so results are not identical. Can be considered when group means differ substantially in expression intensity.</td>
 </tr>
 </tbody>
 </table>
+</div>
+<div class="section level4">
+<h4 id="variance-trend-used-with-varianceeval--per_group">Variance trend used with <code>variance.eval = "per_group"</code>
+<a class="anchor" aria-label="anchor" href="#variance-trend-used-with-varianceeval--per_group"></a>
+</h4>
+<p><code>variance.trend</code> chooses which trend each group’s variance is read from (one-way designs, <code>variance.eval = "per_group"</code> only):</p>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr>
+<th>Value</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+<code>"pooled"</code> (default)</td>
+<td>Every group reads its variance from the single trend estimated from all design cells. Results are identical to previous versions.</td>
+</tr>
+<tr>
+<td><code>"per_group"</code></td>
+<td>Every group with at least two samples reads its variance from its own trend, fitted to that group’s replicate pairs only, as in LPEseq1 and the original LPE method. Single-sample groups use the pooled trend. Useful when the noise level may differ between conditions.</td>
+</tr>
+</tbody>
+</table>
+<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">res_pg</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LPE_ANOVA.html">LPE_ANOVA</a></span><span class="op">(</span><span class="va">prep</span>, variance.eval <span class="op">=</span> <span class="st">"per_group"</span>,</span>
+<span>                    variance.trend <span class="op">=</span> <span class="st">"per_group"</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res_pg</span>, <span class="st">"variance.settings"</span><span class="op">)</span><span class="op">$</span><span class="va">trend.source</span>   <span class="co"># trend used by each group</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res_pg</span>, <span class="st">"var.spline.group"</span><span class="op">)</span>                 <span class="co"># group-specific trends</span></span></code></pre></div>
+<p>Requesting <code>variance.trend = "per_group"</code> with <code>variance.eval = "grand_mean"</code> raises an error.</p>
 </div>
 <div class="section level4">
 <h4 id="additional-columns-for-standard-anova">Additional columns for standard ANOVA<a class="anchor" aria-label="anchor" href="#additional-columns-for-standard-anova"></a>
@@ -757,15 +879,19 @@ MS_between_treatment, F_treatment, p.value_treatment, q.value_treatment, method<
 <div class="section level4">
 <h4 id="analysis-method-information">Analysis method information<a class="anchor" aria-label="anchor" href="#analysis-method-information"></a>
 </h4>
-<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"analysis.method"</span><span class="op">)</span>           <span class="co"># method actually used</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"requested.analysis.method"</span><span class="op">)</span> <span class="co"># method originally requested</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"standard.min.group.n"</span><span class="op">)</span>      <span class="co"># threshold used for auto mode</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"standard.min.group.n"</span><span class="op">)</span>      <span class="co"># threshold used for auto mode</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"design.terms"</span><span class="op">)</span>              <span class="co"># design terms tested</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"variance.settings"</span><span class="op">)</span>         <span class="co"># variance-training settings used (LPE-ANOVA only)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"var.spline.group"</span><span class="op">)</span>          <span class="co"># group-specific trends (variance.trend = "per_group" only)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"base.var.group"</span><span class="op">)</span>            <span class="co"># their bin-level variance points</span></span></code></pre></div>
 </div>
 <div class="section level4">
 <h4 id="variance-trend-object">Variance trend object<a class="anchor" aria-label="anchor" href="#variance-trend-object"></a>
 </h4>
-<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"var.spline"</span><span class="op">)</span></span></code></pre></div>
 <table class="table">
 <thead><tr>
@@ -796,9 +922,11 @@ MS_between_treatment, F_treatment, p.value_treatment, q.value_treatment, method<
 <div class="section level4">
 <h4 id="trimming-information">Trimming information<a class="anchor" aria-label="anchor" href="#trimming-information"></a>
 </h4>
-<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"trim.info"</span><span class="op">)</span></span></code></pre></div>
-<p>For <code>trim.method = "iqr"</code>, the threshold table includes:</p>
+<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"trim.info"</span><span class="op">)</span>                    <span class="co"># list: method, rule, counts before/after/removed</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"trim.info"</span><span class="op">)</span><span class="op">$</span><span class="va">threshold.table</span>    <span class="co"># thresholds</span></span></code></pre></div>
+<p><code>trim.info</code> reports the number of pairwise values before trimming, after trimming, and removed, in total and separately for within-group and between-group-derived values (<code>n_total_*</code>, <code>n_within_*</code>, <code>n_between_*</code>).</p>
+<p>For <code>trim.method = "iqr"</code>, <code>threshold.table</code> includes:</p>
 <table class="table">
 <thead><tr>
 <th>Column</th>
@@ -863,7 +991,7 @@ MS_between_treatment, F_treatment, p.value_treatment, q.value_treatment, method<
 </tr>
 </tbody>
 </table>
-<p>For <code>trim.method = "dvalue"</code>, the threshold table is a single-row summary (since the threshold is global rather than bin-specific):</p>
+<p>For <code>trim.method = "dvalue"</code>, <code>threshold.table</code> is a single-row summary (since the threshold is global rather than bin-specific):</p>
 <table class="table">
 <colgroup>
 <col width="50%">
@@ -892,12 +1020,13 @@ MS_between_treatment, F_treatment, p.value_treatment, q.value_treatment, method<
 </tr>
 </tbody>
 </table>
+<p>For <code>trim.method = "none"</code> (the automatic choice when every cell is replicated), <code>threshold.table</code> is empty and no values are removed.</p>
 <p>When <code>analysis.method = "standard_anova"</code> is selected, <code>attr(res, "trim.info")</code> is <code>NULL</code>.</p>
 </div>
 <div class="section level4">
 <h4 id="variance-trend-information">Variance trend information<a class="anchor" aria-label="anchor" href="#variance-trend-information"></a>
 </h4>
-<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"trend.info"</span><span class="op">)</span>  <span class="co"># fitting method and degrees of freedom</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"base.var"</span><span class="op">)</span>    <span class="co"># bin-level variance points used for trend fitting</span></span></code></pre></div>
 <hr>
@@ -919,11 +1048,11 @@ MS_between_treatment, F_treatment, p.value_treatment, q.value_treatment, method<
 <tbody>
 <tr>
 <td><code>counts</code></td>
-<td>Full gene-by-pseudo-sample count matrix. Raw integer when <code>normalize_by_ncells = FALSE</code>; CP1K-scaled non-integer when <code>normalize_by_ncells = TRUE</code>.</td>
+<td>Full gene-by-pseudo-sample count matrix. Raw integer counts in a sparse <code>dgCMatrix</code> when <code>normalize_by_ncells = FALSE</code>; a dense matrix of CP1K-scaled (generally non-integer) values when <code>normalize_by_ncells = TRUE</code>.</td>
 </tr>
 <tr>
 <td><code>metadata</code></td>
-<td>Pseudo-bulk sample metadata including condition, cell type, number of cells, library size, pseudo-bulk method, <code>normalize_by_ncells</code> flag, and <code>ncells_scale</code>.</td>
+<td>Pseudo-bulk sample metadata: <code>sample_id</code> (<code>method = "sample"</code> only), <code>condition</code>, <code>celltype</code>, <code>pseudo_sample_id</code>, <code>n_cells</code>, <code>library_size</code> (raw summed counts), <code>method</code>, <code>normalize_by_ncells</code>, and <code>ncells_scale</code>.</td>
 </tr>
 <tr>
 <td><code>counts_by_celltype</code></td>
@@ -969,7 +1098,7 @@ MS_between_treatment, F_treatment, p.value_treatment, q.value_treatment, method<
 </tr>
 <tr>
 <td><code>results_by_celltype</code></td>
-<td>Cell-type-specific differential expression result tables.</td>
+<td>Cell-type-specific differential expression result tables: the <code><a href="reference/LPE_ANOVA.html">LPE_ANOVA()</a></code> columns plus <code>celltype</code>, <code>requested_pseudobulk_method</code>, <code>selected_LPEseq2_method</code>, and <code>variance_training</code>.</td>
 </tr>
 <tr>
 <td><code>combined_result</code></td>
@@ -998,6 +1127,18 @@ MS_between_treatment, F_treatment, p.value_treatment, q.value_treatment, method<
 <p>Package website: <a href="https://ldy0012.github.io/LPEseq2/" class="uri">https://ldy0012.github.io/LPEseq2/</a></p>
 <p>You can run LPEseq2 directly in the browser using the Shiny web tool:</p>
 <p><a href="https://ldy0012.shinyapps.io/lpeseq2app/" class="external-link">Launch LPEseq2 Shiny Web Tool</a></p>
+<hr>
+</div>
+<div class="section level2">
+<h2 id="citation">Citation<a class="anchor" aria-label="anchor" href="#citation"></a>
+</h2>
+<p>If you use LPEseq2, please cite:</p>
+<ul>
+<li>Lim D, Park J, Gim J. LPEseq2 (manuscript in preparation).</li>
+<li>Lim D, Park J, Gim J. LPEseq2 v0.1.1. Zenodo. doi: [to be added]</li>
+<li>Gim J, Won S, Park T (2016). LPEseq: Local-Pooled-Error Test for RNA Sequencing Experiments with a Small Number of Replicates. <em>PLoS ONE</em> 11(8): e0159182. <a href="doi:10.1371/journal.pone.0159182" class="uri">doi:10.1371/journal.pone.0159182</a>
+</li>
+</ul>
 <hr>
 </div>
 <div class="section level2">
@@ -1033,8 +1174,9 @@ MS_between_treatment, F_treatment, p.value_treatment, q.value_treatment, method<
 <div class="developers">
 <h2 data-toc-skip>Developers</h2>
 <ul class="list-unstyled">
-<li>Doye Lim <br><small class="roles"> Author, maintainer </small>   </li>
-<li><a href="authors.html">More about authors...</a></li>
+<li>Doye Lim <br><small class="roles"> Author, maintainer </small> <a href="https://orcid.org/0009-0006-9614-3760" target="orcid.widget" aria-label="ORCID" class="external-link"><span class="fab fa-orcid orcid" aria-hidden="true"></span></a>  </li>
+<li>Jihwan Park <br><small class="roles"> Author </small> <a href="https://orcid.org/0000-0002-5728-912X" target="orcid.widget" aria-label="ORCID" class="external-link"><span class="fab fa-orcid orcid" aria-hidden="true"></span></a>  </li>
+<li>Jungsoo Gim <br><small class="roles"> Author </small> <a href="https://orcid.org/0000-0002-6454-9751" target="orcid.widget" aria-label="ORCID" class="external-link"><span class="fab fa-orcid orcid" aria-hidden="true"></span></a>  </li>
 </ul>
 </div>
 
@@ -1045,7 +1187,7 @@ MS_between_treatment, F_treatment, p.value_treatment, q.value_treatment, method<
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by Doye Lim.</p>
+  <p>Developed by Doye Lim, Jihwan Park, Jungsoo Gim.</p>
 </div>
 
 <div class="pkgdown-footer-right">

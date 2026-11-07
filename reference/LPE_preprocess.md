@@ -68,3 +68,20 @@ each unique combination of the design factors (`group`, kept for
 backward compatibility with one-way designs), a named list of the
 individual design factors (`factors`), design, colData, and
 preprocessing options.
+
+## Examples
+
+``` r
+testdat <- system.file("testdat", package = "LPEseq2")
+counts <- as.matrix(read.csv(file.path(testdat, "LPEseq2_2group_test_counts.csv"),
+                             row.names = 1, check.names = FALSE))
+colData <- read.csv(file.path(testdat, "LPEseq2_2group_test_metadata.csv"),
+                    row.names = 1)
+prep <- LPE_preprocess(counts, colData, design = ~ group, verbose = FALSE)
+dim(prep$expr)
+#> [1] 1000   12
+table(prep$group)
+#> 
+#>     Control Treatment_A 
+#>           6           6 
+```

@@ -1,5 +1,52 @@
 # Changelog
 
+## LPEseq2 0.1.1
+
+- The package now ships the results expected from the bundled test data
+  (`inst/testdat/LPEseq2_2group_expected_results.csv`,
+  `inst/testdat/LPEseq2_multiway_expected_results.csv`) and the script
+  that regenerates them (`inst/testdat/make_expected_results.R`); a new
+  test (`test-expected-results.R`) checks that the current code
+  reproduces them.
+
+- [`LPE_preprocess()`](https://ldy0012.github.io/LPEseq2/reference/LPE_preprocess.md),
+  [`LPE_ANOVA()`](https://ldy0012.github.io/LPEseq2/reference/LPE_ANOVA.md)
+  and
+  [`LPE_ANOVA_var()`](https://ldy0012.github.io/LPEseq2/reference/LPE_ANOVA_var.md)
+  gained runnable examples based on the bundled test data.
+
+- [`LPE_pseudobulk()`](https://ldy0012.github.io/LPEseq2/reference/LPE_pseudobulk.md):
+  removed redundant checks for the package itself and for
+  [`make_pseudobulk_from_seurat()`](https://ldy0012.github.io/LPEseq2/reference/make_pseudobulk_from_seurat.md).
+
+- DESCRIPTION: authors (with ORCID) and the package description updated.
+
+- Shiny app: removed the commented-out volcano plot code.
+
+- [`LPE_ANOVA()`](https://ldy0012.github.io/LPEseq2/reference/LPE_ANOVA.md):
+  new argument `variance.trend = c("pooled", "per_group")`, used with
+  `variance.eval = "per_group"` (one-way designs). With `"per_group"`,
+  every group with at least two samples reads its variance from its own
+  trend, fitted to that group’s replicate pairs only (no trimming under
+  `trim.method = "auto"`; an explicit `trim.method` is applied as
+  given), as LPEseq1 and the original LPE method do for replicated
+  conditions. Single-sample groups use the pooled trend, as LPEseq1 does
+  for non-replicated conditions; a group whose trend cannot be fitted
+  falls back to the pooled trend with a warning. The Welch-type test
+  statistic is unchanged. The default `"pooled"` keeps all previous
+  results identical (also for `variance.eval = "grand_mean"` and
+  multi-way designs). Requesting `variance.trend = "per_group"` with
+  `variance.eval = "grand_mean"` raises an error.
+
+- The group-specific trends are returned in
+  `attr(res, "var.spline.group")` and `attr(res, "base.var.group")`;
+  `attr(res, "variance.settings")` gains `variance.trend` and
+  `trend.source` (the trend used by each group).
+
+- [`LPE_ANOVA_var()`](https://ldy0012.github.io/LPEseq2/reference/LPE_ANOVA_var.md):
+  accepts a single group with at least two samples when
+  `use_weighted_between = FALSE` (needed for the group-specific trends).
+
 ## LPEseq2 0.1.0
 
 - [`LPE_ANOVA()`](https://ldy0012.github.io/LPEseq2/reference/LPE_ANOVA.md)

@@ -25,7 +25,7 @@ variance trend estimation."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">LPEseq2</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -86,7 +86,11 @@ variance trend estimation.</p>
 
 
 <dt id="arg-group">group<a class="anchor" aria-label="anchor" href="#arg-group"></a></dt>
-<dd><p>A factor or vector indicating sample group labels.</p></dd>
+<dd><p>A factor or vector indicating sample group labels. At least
+two groups are needed, except that a single group with at least two
+samples is accepted when <code>use_weighted_between = FALSE</code>; the trend
+is then fitted from that group's replicate pairs alone (used by
+<code>LPE_ANOVA(variance.trend = "per_group")</code>).</p></dd>
 
 
 <dt id="arg-n-bin">n.bin<a class="anchor" aria-label="anchor" href="#arg-n-bin"></a></dt>
@@ -135,12 +139,37 @@ and their <code>_after</code>/<code>_removed</code> counterparts) are twice the
 number of underlying replicate/group pairs.</p>
     </div>
 
+    <div class="section level2">
+    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="va">testdat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"testdat"</span>, package <span class="op">=</span> <span class="st">"LPEseq2"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">counts</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.csv</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">testdat</span>, <span class="st">"LPEseq2_2group_test_counts.csv"</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>                             row.names <span class="op">=</span> <span class="fl">1</span>, check.names <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">colData</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.csv</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">testdat</span>, <span class="st">"LPEseq2_2group_test_metadata.csv"</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>                    row.names <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">prep</span> <span class="op">&lt;-</span> <span class="fu"><a href="LPE_preprocess.html">LPE_preprocess</a></span><span class="op">(</span><span class="va">counts</span>, <span class="va">colData</span>, design <span class="op">=</span> <span class="op">~</span> <span class="va">group</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">vt</span> <span class="op">&lt;-</span> <span class="fu">LPE_ANOVA_var</span><span class="op">(</span><span class="va">prep</span><span class="op">$</span><span class="va">expr</span>, <span class="va">prep</span><span class="op">$</span><span class="va">group</span>, trim.method <span class="op">=</span> <span class="st">"none"</span>,</span></span>
+<span class="r-in"><span>                    use_weighted_between <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">vt</span>, <span class="st">"base.var"</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>          A     var.M</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1 2.690733 1.2122873</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2 3.268862 0.7254224</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3 3.544200 0.6392037</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4 3.761727 0.6794754</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 5 3.919077 0.5380819</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 6 4.051039 0.5516262</span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">vt</span>, <span class="st">"base.var"</span><span class="op">)</span>, xlab <span class="op">=</span> <span class="st">"A (mean log2 expression)"</span>,</span></span>
+<span class="r-in"><span>     ylab <span class="op">=</span> <span class="st">"Bin-level variance of M"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/lines.html" class="external-link">lines</a></span><span class="op">(</span><span class="va">vt</span><span class="op">$</span><span class="va">object</span>, col <span class="op">=</span> <span class="st">"red"</span><span class="op">)</span></span></span>
+<span class="r-plt img"><img src="LPE_ANOVA_var-1.png" alt="" width="700" height="433"></span>
+<span class="r-in"><span></span></span>
+</code></pre></div>
+    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by Doye Lim.</p>
+  <p>Developed by Doye Lim, Jihwan Park, Jungsoo Gim.</p>
 </div>
 
 <div class="pkgdown-footer-right">
