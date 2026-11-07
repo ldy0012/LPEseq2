@@ -1,0 +1,13 @@
+sample,group,batch,description
+Control_S1,Control,batch1,Simulated sample for LPEseq2 ANOVA test
+Control_S2,Control,batch1,Simulated sample for LPEseq2 ANOVA test
+Control_S3,Control,batch1,Simulated sample for LPEseq2 ANOVA test
+Control_S4,Control,batch1,Simulated sample for LPEseq2 ANOVA test
+Control_S5,Control,batch1,Simulated sample for LPEseq2 ANOVA test
+Control_S6,Control,batch1,Simulated sample for LPEseq2 ANOVA test
+Treatment_A_S1,Treatment_A,batch1,Simulated sample for LPEseq2 ANOVA test
+Treatment_A_S2,Treatment_A,batch1,Simulated sample for LPEseq2 ANOVA test
+Treatment_A_S3,Treatment_A,batch1,Simulated sample for LPEseq2 ANOVA test
+Treatment_A_S4,Treatment_A,batch2,Simulated sample for LPEseq2 ANOVA test
+Treatment_A_S5,Treatment_A,batch2,Simulated sample for LPEseq2 ANOVA test
+Treatment_A_S6,Treatment_A,batch2,Simulated sample for LPEseq2 ANOVA test

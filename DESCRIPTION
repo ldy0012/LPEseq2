@@ -1,0 +1,62 @@
+Package: LPEseq2
+Type: Package
+Title: Local Pooled Error-Based ANOVA for RNA-Seq Count Data
+Version: 0.1.1
+Authors@R: c(
+    person(
+        given = "Doye",
+        family = "Lim",
+        email = "doye730@gmail.com",
+        role = c("aut", "cre"),
+        comment = c(ORCID = "0009-0006-9614-3760")
+    ),
+    person(
+        given = "Jihwan",
+        family = "Park",
+        role = "aut",
+        comment = c(ORCID = "0000-0002-5728-912X")
+    ),
+    person(
+        given = "Jungsoo",
+        family = "Gim",
+        email = "jgim@chosun.ac.kr",
+        role = "aut",
+        comment = c(ORCID = "0000-0002-6454-9751")
+    )
+    )
+Description: Differential expression analysis of RNA-seq count data with
+    few or no replicates per condition. Extends the local pooled error (LPE)
+    test (Jain et al. 2003 <doi:10.1093/bioinformatics/btg264>; Gim et al.
+    2016 <doi:10.1371/journal.pone.0159182>) from two-group comparisons to
+    one-way and additive multi-factor designs without interaction terms,
+    specified via a formula such as ~ group or ~ genotype + treatment. An
+    intensity-dependent variance trend is estimated from replicate pairs
+    pooled across genes, with standardized between-cell differences and
+    fixed-threshold trimming when design cells lack replication, and is used
+    in term-specific Type II ANOVA-like tests. One-way designs can use a
+    Welch-type statistic with pooled or group-specific variance trends.
+    Gene-wise standard ANOVA is selected automatically when every design
+    cell is well replicated. A pseudo-bulk workflow aggregates annotated
+    single-cell data by sample and cell type, with optional counts per
+    1,000 cells scaling. Count filtering and library-size, TMM or DESeq2
+    normalization are provided, together with a Shiny interface.
+License: MIT + file LICENSE
+URL: https://ldy0012.github.io/LPEseq2/, https://github.com/ldy0012/LPEseq2
+BugReports: https://github.com/ldy0012/LPEseq2/issues
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+Imports:
+    methods,
+    stats,
+    utils
+Suggests:
+    shiny,
+    bslib,
+    DT,
+    Seurat,
+    edgeR,
+    DESeq2,
+    Matrix,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+Config/roxygen2/version: 8.1.0
