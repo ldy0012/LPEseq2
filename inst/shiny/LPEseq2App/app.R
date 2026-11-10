@@ -144,6 +144,17 @@ ui <- fluidPage(
       }
 
       /* ---------- group-factor builder (+ / - buttons) ---------- */
+      .example-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .example-note {
+        font-size: 0.9em;
+        color: #166534;
+      }
       .factor-btns {
         display: flex;
         gap: 6px;
@@ -317,6 +328,23 @@ ui <- fluidPage(
   div(
     class = "lpe-topbar",
     wellPanel(
+      # Example data (the test data shipped with the LPEseq2 package), so the
+      # tool can be tried without preparing any files.
+      div(
+        class = "example-row",
+        tags$strong(icon("flask"), " Try with example data:"),
+        actionButton(
+          "load_example_2group", "Two groups (~ group)",
+          class = "btn btn-outline-success btn-sm",
+          title = "1,000 simulated genes; Control (6) vs Treatment_A (6)"
+        ),
+        actionButton(
+          "load_example_multiway", "Three groups + batch (~ group + batch)",
+          class = "btn btn-outline-success btn-sm",
+          title = "1,000 simulated genes; 3 groups x 6 samples, 2 batches"
+        ),
+        uiOutput("example_note_ui", inline = TRUE)
+      ),
       fluidRow(
         column(
           3,
@@ -727,18 +755,88 @@ server <- function(input, output, session) {
   # clicked, no matter which tab the user is on at the time.
   analysis_state <- reactiveVal(list(status = "idle"))
 
+  # ------------------------------------------------------------
+  # Data sources: an uploaded file or the example (test) data shipped with
+  # the LPEseq2 package (inst/testdat). Each source is a list with $path and
+  # $example (NULL for an uploaded file, otherwise the example's label).
+  # meta_version is bumped whenever new metadata is loaded so the group
+  # dropdowns start from their defaults instead of an old selection.
+  # ------------------------------------------------------------
+  counts_src   <- reactiveVal(NULL)
+  meta_src     <- reactiveVal(NULL)
+  meta_version <- reactiveVal(0)
+
+  example_sets <- list(
+    two_group = list(
+      label  = "two groups (Control vs Treatment_A, 6 samples each)",
+      counts = "LPEseq2_2group_test_counts.csv",
+      meta   = "LPEseq2_2group_test_metadata.csv",
+      n_factors = 1
+    ),
+    multiway = list(
+      label  = "three groups + batch (6 samples per group)",
+      counts = "LPEseq2_test_counts.csv",
+      meta   = "LPEseq2_test_metadata.csv",
+      n_factors = 2
+    )
+  )
+
+  # Example files: a copy next to app.R (example_data/) is used first, then
+  # the test data of the installed LPEseq2 package.
+  example_path <- function(file) {
+    local <- file.path("example_data", file)
+    if (file.exists(local)) return(local)
+    pkg <- system.file("testdat", file, package = "LPEseq2")
+    if (nzchar(pkg) && file.exists(pkg)) return(pkg)
+    NA_character_
+  }
+
+  reset_results <- function() {
+    analysis_state(list(status = "idle"))
+    run_state("idle")
+  }
+
+  load_example <- function(key) {
+    ex <- example_sets[[key]]
+    paths <- c(example_path(ex$counts), example_path(ex$meta))
+    if (anyNA(paths)) {
+      showNotification(
+        "Example data not found. Please install LPEseq2 0.1.1 or later.",
+        type = "error"
+      )
+      return(invisible(NULL))
+    }
+    counts_src(list(path = paths[1], example = ex$label))
+    meta_src(list(path = paths[2], example = ex$label))
+    updateCheckboxInput(session, "no_gene_id", value = FALSE)
+    meta_version(meta_version() + 1)
+    n_factors(ex$n_factors)
+    reset_results()
+  }
+
+  observeEvent(input$load_example_2group,   load_example("two_group"))
+  observeEvent(input$load_example_multiway, load_example("multiway"))
+
+  output$example_note_ui <- renderUI({
+    src <- counts_src()
+    if (is.null(src) || is.null(src$example)) return(NULL)
+    span(class = "example-note", icon("check-circle"),
+         paste0(" Example data loaded: ", src$example, ". Click Run Analysis."))
+  })
+
   # If the user uploads a new counts or metadata file after already running
   # an analysis, clear the previous result so the Results/Method info/etc.
   # tabs don't keep showing numbers computed from the old file (which would
   # otherwise look like current results for the newly uploaded data).
   observeEvent(input$counts_file, {
-    analysis_state(list(status = "idle"))
-    run_state("idle")
+    counts_src(list(path = input$counts_file$datapath, example = NULL))
+    reset_results()
   })
 
   observeEvent(input$meta_file, {
-    analysis_state(list(status = "idle"))
-    run_state("idle")
+    meta_src(list(path = input$meta_file$datapath, example = NULL))
+    meta_version(meta_version() + 1)
+    reset_results()
     n_factors(1)   # new metadata: start over with a single group factor
   })
 
@@ -953,15 +1051,16 @@ server <- function(input, output, session) {
   })
 
   counts_data <- reactive({
-    req(input$counts_file)
+    src <- counts_src()
+    req(src)
 
     counts_raw <- data.table::fread(
-      input$counts_file$datapath,
+      src$path,
       data.table = FALSE,
       check.names = FALSE
     )
 
-    if (isTRUE(input$no_gene_id)) {
+    if (is.null(src$example) && isTRUE(input$no_gene_id)) {
       gene_id_warning(
         paste0(
           "Gene identifiers were automatically assigned as gene_1, gene_2, ... ",
@@ -987,10 +1086,11 @@ server <- function(input, output, session) {
   })
 
   meta_data <- reactive({
-    req(input$meta_file)
+    src <- meta_src()
+    req(src)
 
     meta <- data.table::fread(
-      input$meta_file$datapath,
+      src$path,
       data.table = FALSE,
       check.names = FALSE
     )
@@ -1022,18 +1122,21 @@ server <- function(input, output, session) {
   # (read with isolate() so the selection itself doesn't retrigger the
   # render), and a new dropdown defaults to the first metadata column that
   # is not already used.
+  rendered_meta_version <- -1
   output$factor_vars_ui <- renderUI({
     req(meta_data())
 
     cols <- colnames(meta_data())
     n <- n_factors()
+    fresh <- !identical(rendered_meta_version, meta_version())
+    rendered_meta_version <<- meta_version()
 
     chosen <- character(0)
     inputs <- vector("list", n)
 
     for (i in seq_len(n)) {
       id <- paste0("factor_var_", i)
-      prev <- isolate(input[[id]])
+      prev <- if (fresh) NULL else isolate(input[[id]])
 
       if (!is.null(prev) && length(prev) == 1 && prev %in% cols) {
         sel <- prev
