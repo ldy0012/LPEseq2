@@ -1,4 +1,4 @@
-# LPEseq2 0.1.1
+# LPEseq2 1.0.0
 
 * The package now ships the results expected from the bundled test data
   (`inst/testdat/LPEseq2_2group_expected_results.csv`,
