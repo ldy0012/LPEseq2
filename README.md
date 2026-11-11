@@ -632,7 +632,7 @@ attr(res_old, "variance.settings")$rule
 #> "within- and weighted between-group pairs, dvalue trimming (smallest cell n = 3)"
 ```
 
-`attr(res, "variance.settings")` also contains `trim.method`, `use_weighted_between`, `auto` (whether the automatic rule was applied), `replicated`, and `min_cell_n`.
+`attr(res, "variance.settings")` also contains `trim.method`, `use_weighted_between`, `auto` (whether the automatic rule was applied), `replicated`, `min_cell_n`, `variance.trend` (`"pooled"` or `"per_group"`), and, with `variance.eval = "per_group"`, `trend.source` (the trend used by each group).
 
 ---
 
@@ -723,6 +723,8 @@ attr(res, "requested.analysis.method") # method originally requested
 attr(res, "standard.min.group.n")      # threshold used for auto mode
 attr(res, "design.terms")              # design terms tested
 attr(res, "variance.settings")         # variance-training settings used (LPE-ANOVA only)
+attr(res, "var.spline.group")          # group-specific trends (variance.trend = "per_group" only)
+attr(res, "base.var.group")            # their bin-level variance points
 ```
 
 #### Variance trend object
