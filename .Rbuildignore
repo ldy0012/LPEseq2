@@ -7,3 +7,5 @@
 ^\.github$
 ^inst/shiny/LPEseq2App/rsconnect$
 ^\.zenodo\.json$
+^S1_SUM149PT$
+^S2_U2OS$
